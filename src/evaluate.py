@@ -51,12 +51,8 @@ def evaluate_model(
                 t.to(device) for t in batch
             ]
 
-            if isinstance(model, TwoStageModel):
-                c_hat = model.predictor(features)
-                weights = model.qp_layer(c_hat, R_scaled)
-            else:
-                c_hat = model.predictor(features)
-                weights = model.qp_layer(c_hat, R_scaled)
+            c_hat = model.predictor(features)
+            weights = model.qp_layer(c_hat, R_scaled)
 
             portfolio_ret = (weights * target_return).sum(dim=-1)
             diff = (portfolio_ret - target_index).cpu().numpy()
