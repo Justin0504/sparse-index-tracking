@@ -1,0 +1,66 @@
+# ── Data ──
+data:
+  universe: "sp500"              # sp500 | synthetic
+  start_date: "2006-01-01"
+  end_date: "2025-12-31"
+  top_n_by_mcap: 100            # pre-screen to top N by market cap
+  cache_dir: "data/cache"
+  synthetic:
+    n_stocks: 50
+    n_days: 2520                 # ~10 years
+    n_factors: 5
+
+# ── Features ──
+features:
+  vol_window: 21                # trailing realized volatility window (days)
+  momentum_window: 63           # price momentum window (days)
+  use_sector: true              # GICS sector one-hot
+  use_mcap_quintile: true       # market-cap quintile
+
+# ── Rolling Window ──
+rolling:
+  train_years: 3
+  val_months: 6
+  test_years: 1
+  step_years: 1                 # roll forward by 1 year
+
+# ── Optimization (QP) ──
+optimization:
+  sparsity_levels: [5, 10, 20, 30, 50]        # K values for cardinality sweep
+  rebalance_freq: "monthly"                   # daily | weekly | monthly
+  selection: "market_cap"                     # market_cap | tracking_score
+
+# ── Models ──
+model:
+  name: "factor"                # factor | neural
+  # Factor model
+  factor:
+    n_factors: 10
+  # Neural covariance estimator
+  neural:
+    hidden_dims: [256, 128]
+    dropout: 0.1
+    rank: 20                        # low-rank factor dimension
+
+# ── Training ──
+training:
+  loss: "task"                  # mse | task
+  lr: 1e-3
+  weight_decay: 1e-4
+  epochs: 50
+  batch_size: 32
+  patience: 10                  # early stopping patience
+  turnover_penalty: 0.1         # λ for turnover regularization in task loss
+  seed: 42
+  device: "mps"                 # cpu | cuda | mps
+
+# ── Evaluation ──
+evaluation:
+  annualization_factor: 252     # trading days per year
+  vix_bull_threshold: 15        # VIX < 15 = bull
+  vix_bear_threshold: 25        # VIX > 25 = bear/high-vol
+
+# ── Logging ──
+logging:
+  use_wandb: false
+  project: "sparse-index-tracking"
