@@ -181,8 +181,9 @@ def run_experiment(cfg: DictConfig) -> dict:
                     out.append(d)
             return out
 
-        rebal_train = _filter_rebal(_get_rebalance_dates(ret_train.index, cfg.optimization.rebalance_freq))
-        rebal_val = _filter_rebal(_get_rebalance_dates(ret_val.index, cfg.optimization.rebalance_freq))
+        train_freq = cfg.optimization.get("train_rebalance_freq", cfg.optimization.rebalance_freq)
+        rebal_train = _filter_rebal(_get_rebalance_dates(ret_train.index, train_freq))
+        rebal_val = _filter_rebal(_get_rebalance_dates(ret_val.index, train_freq))
         rebal_test = _filter_rebal(_get_rebalance_dates(ret_test.index, cfg.optimization.rebalance_freq))
 
         if not rebal_train or not rebal_test:

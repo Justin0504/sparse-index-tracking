@@ -52,6 +52,9 @@ class Trainer:
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=lr, weight_decay=weight_decay
         )
+        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer, T_max=epochs, eta_min=lr * 0.01
+        )
         self._qp_layer: SparseTrackingQP | None = None
 
     def _get_qp_layer(self, n_stocks: int) -> SparseTrackingQP:
@@ -145,9 +148,12 @@ class Trainer:
             val_loss = float(np.mean(val_losses)) if val_losses else float("nan")
             history["val_losses"].append(val_loss)
 
+            self.scheduler.step()
+
             log.info(
                 f"Epoch {epoch + 1}/{self.epochs} — "
-                f"train_loss={train_loss:.6f}, val_loss={val_loss:.6f}"
+                f"train_loss={train_loss:.6f}, val_loss={val_loss:.6f}, "
+                f"lr={self.optimizer.param_groups[0]['lr']:.2e}"
             )
 
             # Early stopping
@@ -205,7 +211,7 @@ class Trainer:
 
         qp = self._get_qp_layer(n_stocks)
         try:
-            w_opt = qp.solve(cov_pred, w_idx_t, K=self.sparsity_K, hard=False, selection=self.selection)
+            w_opt = qp.solve(cov_pred, w_idx_t, K=self.sparsity_K, hard=False, selection=self.selection, w_prev=w_prev)
         except Exception as e:
             log.debug(f"QP solve failed at {date}: {e}")
             return None, None

@@ -27,7 +27,8 @@ rolling:
 # ── Optimization (QP) ──
 optimization:
   sparsity_levels: [5, 10, 20, 30, 50]        # K values for cardinality sweep
-  rebalance_freq: "monthly"                   # daily | weekly | monthly
+  rebalance_freq: "monthly"                   # daily | weekly | monthly (test/eval)
+  train_rebalance_freq: "weekly"             # daily | weekly | monthly (training)
   selection: "market_cap"                     # market_cap | tracking_score
 
 # ── Models ──
@@ -50,7 +51,7 @@ training:
   epochs: 50
   batch_size: 32
   patience: 10                  # early stopping patience
-  turnover_penalty: 0.1         # λ for turnover regularization in task loss
+  turnover_penalty: 0.0         # λ for turnover regularization in task loss
   seed: 42
   device: "mps"                 # cpu | cuda | mps
 

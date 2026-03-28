@@ -98,6 +98,7 @@ class SparseTrackingQP:
         hard: bool = False,
         solver_args: dict | None = None,
         selection: str = "market_cap",
+        w_prev: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Select top-K stocks then solve reduced tracking QP.
 
@@ -108,6 +109,7 @@ class SparseTrackingQP:
         K : int — number of stocks to hold
         hard : bool — if True, use exact QP (evaluation); else unrolled (training)
         selection : str — "market_cap" (stable) or "tracking_score" (covariance-aware)
+        w_prev : Tensor (N,) | None — previous portfolio weights for warm-starting PGD
         """
         N = cov.shape[0]
         K = min(K, N)
@@ -125,10 +127,17 @@ class SparseTrackingQP:
         cov_SN = cov[selected_sorted]                       # (K, N)
         b = cov_SN @ w_idx  # (K,) — cov of selected stocks with index portfolio
 
+        # Warm-start: extract previous weights for selected stocks
+        w_init = None
+        if w_prev is not None:
+            w_prev_S = w_prev[selected_sorted]
+            if w_prev_S.sum() > 0.01:  # only warm-start if meaningful overlap
+                w_init = w_prev_S / (w_prev_S.sum() + 1e-10)  # re-normalize to simplex
+
         if hard:
             w_S = self._solve_reduced_exact(cov_SS, b, K, solver_args)
         else:
-            w_S = self._solve_reduced_unrolled(cov_SS, b, K)
+            w_S = self._solve_reduced_unrolled(cov_SS, b, K, w_init=w_init)
 
         # Embed back to N-dimensional vector
         w_full = torch.zeros(N, device=cov.device, dtype=w_S.dtype)
@@ -169,6 +178,7 @@ class SparseTrackingQP:
         K: int,
         n_iters: int = 100,
         step_size: float = 0.5,
+        w_init: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Unrolled projected gradient descent on the reduced QP."""
         Q = 0.5 * (cov_SS + cov_SS.T)
@@ -176,7 +186,10 @@ class SparseTrackingQP:
         Q = Q + 1e-4 * diag_max * torch.eye(K, device=Q.device, dtype=Q.dtype)
 
         effective_step = step_size / (diag_max + 1e-8)
-        w = torch.ones(K, device=Q.device, dtype=Q.dtype) / K
+        if w_init is not None and w_init.shape[0] == K:
+            w = w_init.detach().clone()
+        else:
+            w = torch.ones(K, device=Q.device, dtype=Q.dtype) / K
 
         for _ in range(n_iters):
             grad = 2.0 * (Q @ w - b)
