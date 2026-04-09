@@ -18,9 +18,9 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from src.data import SP500DataLoader, FeatureBuilder, RollingWindowSplitter, generate_synthetic_data
-from src.models import FactorCovarianceModel, NeuralCovarianceModel
-from src.optimization.qp_layer import SparseTrackingQP
-from src.optimization.solver import solve_tracking_qp
+from src.models import FactorCovarianceModel, NeuralCovarianceModel, ShrinkageCovarianceModel
+from src.optimization.qp_layer import SparseTrackingQP, L1TrackingQP
+from src.optimization.solver import solve_tracking_qp, solve_tracking_qp_l1, naive_index_weights
 from src.training import Trainer
 from src.evaluation.metrics import (
     tracking_error,
@@ -77,6 +77,11 @@ def _build_model(
             hidden_dims=list(cfg.model.neural.hidden_dims),
             dropout=cfg.model.neural.dropout,
             rank=cfg.model.neural.rank,
+        )
+    elif cfg.model.name == "shrinkage":
+        return ShrinkageCovarianceModel(
+            n_stocks=n_stocks,
+            init_alpha=cfg.model.get("shrinkage", {}).get("init_alpha", 0.5),
         )
     else:
         raise ValueError(f"Unknown model: {cfg.model.name}")
@@ -190,10 +195,51 @@ def run_experiment(cfg: DictConfig) -> dict:
             log.warning(f"Fold {fold_info.fold}: insufficient rebalancing dates, skipping")
             continue
 
+        # ── Naive market-cap baseline (no model, no training) ──
+        if cfg.get("run_naive_baseline", True):
+            for K in cfg.optimization.sparsity_levels:
+                log.info(f"\n--- Naive baseline K={K} ---")
+                portfolio_rets_naive = []
+                index_rets_naive = []
+
+                for i, date in enumerate(rebal_test):
+                    loc = returns.index.get_loc(date)
+                    next_loc = (returns.index.get_loc(rebal_test[i + 1])
+                                if i + 1 < len(rebal_test) else len(returns))
+                    if next_loc <= loc:
+                        continue
+                    w_naive = naive_index_weights(w_index, K)
+                    holding_rets = returns.iloc[loc:next_loc].values
+                    portfolio_rets_naive.extend((holding_rets @ w_naive).tolist())
+                    index_rets_naive.extend((holding_rets @ w_index).tolist())
+
+                if portfolio_rets_naive:
+                    pr = np.array(portfolio_rets_naive)
+                    ir_naive = np.array(index_rets_naive)
+                    te_n = tracking_error(pr, ir_naive, cfg.evaluation.annualization_factor)
+                    mtd_n = max_tracking_deviation(pr, ir_naive)
+                    ir_val = information_ratio(pr, ir_naive, cfg.evaluation.annualization_factor)
+                    result = {
+                        "fold": fold_info.fold, "K": K,
+                        "model": "naive_mcap", "loss": "none",
+                        "tracking_error": te_n, "max_tracking_deviation": mtd_n,
+                        "information_ratio": ir_val,
+                        "avg_sparsity": float(K), "avg_turnover": 0.0,
+                        "test_start": str(fold_info.test_start.date()),
+                        "test_end": str(fold_info.test_end.date()),
+                        "portfolio_returns": pr.tolist(),
+                        "index_returns": ir_naive.tolist(),
+                    }
+                    all_results.append(result)
+                    log.info(f"Naive K={K} | TE={te_n:.4f} | MTD={mtd_n:.4f} | IR={ir_val:.4f}")
+
         for K in cfg.optimization.sparsity_levels:
             log.info(f"\n--- Sparsity K={K} ---")
 
             model = _build_model(cfg, n_features, n_stocks)
+
+            qp_form = cfg.optimization.get("qp_formulation", "hard_k")
+            l1_lam = cfg.optimization.get("l1_lambda", 0.01)
 
             trainer = Trainer(
                 model=model,
@@ -207,6 +253,8 @@ def run_experiment(cfg: DictConfig) -> dict:
                 sparsity_K=K,
                 turnover_penalty=cfg.training.get("turnover_penalty", 0.0),
                 selection=cfg.optimization.get("selection", "market_cap"),
+                qp_formulation=qp_form,
+                l1_lambda=l1_lam,
             )
 
             history = trainer.train(
@@ -238,10 +286,18 @@ def run_experiment(cfg: DictConfig) -> dict:
                 features_np = fb.build_features(returns, date)
                 with torch.no_grad():
                     features_t = torch.tensor(features_np, dtype=torch.float32, device=device)
+                    # For shrinkage model, set sample covariance
+                    if isinstance(model, ShrinkageCovarianceModel):
+                        sample_cov_np = fb.compute_realized_covariance(returns, date, 63)
+                        sample_cov_t = torch.tensor(sample_cov_np, dtype=torch.float32, device=device)
+                        model.set_sample_covariance(sample_cov_t)
                     cov_pred = model(features_t).cpu().numpy()
 
                 try:
-                    w_opt = solve_tracking_qp(cov_pred, w_index, K=K, selection=cfg.optimization.get("selection", "market_cap"))
+                    if qp_form == "l1":
+                        w_opt = solve_tracking_qp_l1(cov_pred, w_index, lam=l1_lam)
+                    else:
+                        w_opt = solve_tracking_qp(cov_pred, w_index, K=K, selection=cfg.optimization.get("selection", "market_cap"))
                 except Exception as e:
                     log.warning(f"Test QP failed at {date}: {e}, using equal weight")
                     w_opt = np.ones(n_stocks, dtype=np.float64) / n_stocks
@@ -275,6 +331,9 @@ def run_experiment(cfg: DictConfig) -> dict:
                 "K": K,
                 "model": cfg.model.name,
                 "loss": cfg.training.loss,
+                "qp_formulation": qp_form,
+                "selection": cfg.optimization.get("selection", "market_cap"),
+                "n_factors": cfg.model.factor.n_factors if cfg.model.name == "factor" else None,
                 "tracking_error": te,
                 "max_tracking_deviation": mtd,
                 "information_ratio": ir,

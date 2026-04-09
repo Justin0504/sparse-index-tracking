@@ -9,7 +9,8 @@ import torch
 import torch.optim as optim
 
 from src.data.features import FeatureBuilder
-from src.optimization.qp_layer import SparseTrackingQP
+from src.models.shrinkage_model import ShrinkageCovarianceModel
+from src.optimization.qp_layer import SparseTrackingQP, L1TrackingQP
 from src.training.losses import mse_loss, task_loss
 from src.utils.logging import get_logger
 
@@ -37,6 +38,8 @@ class Trainer:
         grad_accum_steps: int = 4,
         turnover_penalty: float = 0.0,
         selection: str = "market_cap",
+        qp_formulation: str = "hard_k",
+        l1_lambda: float = 0.01,
     ):
         self.model = model.to(device)
         self.feature_builder = feature_builder
@@ -48,6 +51,8 @@ class Trainer:
         self.grad_accum_steps = grad_accum_steps
         self.turnover_penalty = turnover_penalty
         self.selection = selection
+        self.qp_formulation = qp_formulation
+        self.l1_lambda = l1_lambda
 
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=lr, weight_decay=weight_decay
@@ -56,11 +61,17 @@ class Trainer:
             self.optimizer, T_max=epochs, eta_min=lr * 0.01
         )
         self._qp_layer: SparseTrackingQP | None = None
+        self._l1_qp_layer: L1TrackingQP | None = None
 
     def _get_qp_layer(self, n_stocks: int) -> SparseTrackingQP:
         if self._qp_layer is None or self._qp_layer.n_stocks != n_stocks:
             self._qp_layer = SparseTrackingQP(n_stocks)
         return self._qp_layer
+
+    def _get_l1_qp_layer(self, n_stocks: int) -> L1TrackingQP:
+        if self._l1_qp_layer is None or self._l1_qp_layer.n_stocks != n_stocks:
+            self._l1_qp_layer = L1TrackingQP(n_stocks)
+        return self._l1_qp_layer
 
     def train(
         self,
@@ -191,6 +202,14 @@ class Trainer:
         features_np = self.feature_builder.build_features(returns_df, date)
         features_t = torch.tensor(features_np, dtype=torch.float32, device=self.device)
 
+        # For shrinkage model, set sample covariance before forward pass
+        if isinstance(self.model, ShrinkageCovarianceModel):
+            sample_cov_np = self.feature_builder.compute_realized_covariance(
+                returns_df, date, lookback
+            )
+            sample_cov_t = torch.tensor(sample_cov_np, dtype=torch.float32, device=self.device)
+            self.model.set_sample_covariance(sample_cov_t)
+
         cov_pred = self.model(features_t)
 
         if self.loss_type == "mse":
@@ -209,9 +228,13 @@ class Trainer:
         if loc + forward_window > len(returns_df):
             return None, None
 
-        qp = self._get_qp_layer(n_stocks)
         try:
-            w_opt = qp.solve(cov_pred, w_idx_t, K=self.sparsity_K, hard=False, selection=self.selection, w_prev=w_prev)
+            if self.qp_formulation == "l1":
+                l1_qp = self._get_l1_qp_layer(n_stocks)
+                w_opt = l1_qp.solve(cov_pred, w_idx_t, lam=self.l1_lambda, hard=False)
+            else:
+                qp = self._get_qp_layer(n_stocks)
+                w_opt = qp.solve(cov_pred, w_idx_t, K=self.sparsity_K, hard=False, selection=self.selection, w_prev=w_prev)
         except Exception as e:
             log.debug(f"QP solve failed at {date}: {e}")
             return None, None

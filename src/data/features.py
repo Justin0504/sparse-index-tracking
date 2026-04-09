@@ -111,6 +111,53 @@ class FeatureBuilder:
         cov = np.cov(window, rowvar=False)
         return cov.astype(np.float32)
 
+    def compute_ledoit_wolf_covariance(
+        self,
+        returns: pd.DataFrame,
+        date: pd.Timestamp,
+        lookback: int = 63,
+    ) -> tuple[np.ndarray, float]:
+        """Compute Ledoit-Wolf shrinkage covariance estimate.
+
+        Σ_shrunk = (1 - α) * S + α * μ * I
+
+        where S is the sample covariance, μ = trace(S)/N, and α is the
+        optimal shrinkage intensity from Ledoit & Wolf (2004).
+
+        Returns
+        -------
+        cov_shrunk : ndarray (N, N)
+        alpha : float — optimal shrinkage intensity
+        """
+        loc = returns.index.get_loc(date)
+        start = max(0, loc - lookback)
+        X = returns.iloc[start:loc].values  # (T, N)
+        T, N = X.shape
+        if T < 2:
+            return np.eye(N, dtype=np.float32) * 1e-4, 1.0
+
+        # Sample covariance
+        X_centered = X - X.mean(axis=0)
+        S = (X_centered.T @ X_centered) / (T - 1)
+
+        # Shrinkage target: scaled identity
+        mu = np.trace(S) / N
+
+        # Optimal shrinkage intensity (Ledoit-Wolf 2004, Eq. 2)
+        delta = S - mu * np.eye(N)
+        # sum of squared off-diagonal + diagonal deviations
+        delta_sq_sum = np.sum(delta ** 2) / N
+
+        # Estimate of the squared Frobenius norm of the estimation error
+        X2 = X_centered ** 2
+        phi = np.sum((X2.T @ X2) / (T - 1) - S ** 2) / N
+
+        # Clamp alpha to [0, 1]
+        alpha = max(0.0, min(1.0, phi / (delta_sq_sum + 1e-10)))
+
+        cov_shrunk = (1 - alpha) * S + alpha * mu * np.eye(N)
+        return cov_shrunk.astype(np.float32), float(alpha)
+
     def compute_stock_index_covariance(
         self,
         returns: pd.DataFrame,

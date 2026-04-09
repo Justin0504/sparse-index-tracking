@@ -30,18 +30,24 @@ optimization:
   rebalance_freq: "monthly"                   # daily | weekly | monthly (test/eval)
   train_rebalance_freq: "weekly"             # daily | weekly | monthly (training)
   selection: "market_cap"                     # market_cap | tracking_score
+  qp_formulation: "hard_k"                   # hard_k | l1
+  l1_lambda: 0.01                             # ℓ₁ penalty strength (only for l1 formulation)
 
 # ── Models ──
 model:
-  name: "factor"                # factor | neural
+  name: "factor"                # factor | neural | shrinkage
   # Factor model
   factor:
     n_factors: 10
+    # For misspecification sweep: override with model.factor.n_factors=3
   # Neural covariance estimator
   neural:
     hidden_dims: [256, 128]
     dropout: 0.1
     rank: 20                        # low-rank factor dimension
+  # Shrinkage model
+  shrinkage:
+    init_alpha: 0.5
 
 # ── Training ──
 training:

@@ -65,6 +65,84 @@ def compute_tracking_scores(
     return scores
 
 
+class L1TrackingQP:
+    """Differentiable ℓ₁-penalized index tracking QP (Formulation B).
+
+    Solves over all N assets with elastic-net regularization for sparsity.
+    No explicit stock selection — sparsity is induced by the penalty.
+    """
+
+    def __init__(self, n_stocks: int):
+        self.n_stocks = n_stocks
+        self._cvxpy_cache: dict[str, CvxpyLayer] = {}
+
+    def _get_cvxpy_layer(self, n: int) -> CvxpyLayer:
+        key = f"l1_{n}"
+        if key not in self._cvxpy_cache:
+            w = cp.Variable(n)
+            Q_param = cp.Parameter((n, n))  # Cholesky factor of (Σ + λI)
+            q_param = cp.Parameter(n)       # target vector
+            objective = cp.Minimize(cp.sum_squares(Q_param @ w - q_param))
+            constraints = [cp.sum(w) == 1, w >= 0]
+            problem = cp.Problem(objective, constraints)
+            assert problem.is_dcp(dpp=True)
+            self._cvxpy_cache[key] = CvxpyLayer(problem, parameters=[Q_param, q_param], variables=[w])
+        return self._cvxpy_cache[key]
+
+    def solve(
+        self,
+        cov: torch.Tensor,
+        w_idx: torch.Tensor,
+        lam: float = 0.01,
+        hard: bool = False,
+        solver_args: dict | None = None,
+    ) -> torch.Tensor:
+        """Solve the ℓ₁-penalized tracking QP.
+
+        Parameters
+        ----------
+        cov : Tensor (N, N) — predicted covariance matrix
+        w_idx : Tensor (N,) — index weights
+        lam : float — elastic-net penalty strength
+        hard : bool — if True, use exact cvxpylayers; else unrolled PGD
+        """
+        N = cov.shape[0]
+        Q = 0.5 * (cov + cov.T)
+        diag_max = torch.max(torch.diag(Q)).clamp(min=1e-8)
+        Q = Q + (lam + 1e-4 * diag_max) * torch.eye(N, device=Q.device, dtype=Q.dtype)
+        b = cov @ w_idx  # σ_idx
+
+        if hard:
+            return self._solve_exact(Q, b, N, solver_args)
+        else:
+            return self._solve_unrolled(Q, b, N)
+
+    def _solve_exact(
+        self, Q: torch.Tensor, b: torch.Tensor, N: int,
+        solver_args: dict | None = None,
+    ) -> torch.Tensor:
+        solver_args = solver_args or {"max_iters": 10_000}
+        L = torch.linalg.cholesky(Q)
+        P = L.T
+        c = torch.linalg.solve_triangular(L, b.unsqueeze(-1), upper=False).squeeze(-1)
+        layer = self._get_cvxpy_layer(N)
+        (w,) = layer(P, c, solver_args=solver_args)
+        return w
+
+    def _solve_unrolled(
+        self, Q: torch.Tensor, b: torch.Tensor, N: int,
+        n_iters: int = 100, step_size: float = 0.5,
+    ) -> torch.Tensor:
+        diag_max = torch.max(torch.diag(Q)).clamp(min=1e-8)
+        effective_step = step_size / (diag_max + 1e-8)
+        w = torch.ones(N, device=Q.device, dtype=Q.dtype) / N
+        for _ in range(n_iters):
+            grad = 2.0 * (Q @ w - b)
+            w = w - effective_step * grad
+            w = _project_simplex(w)
+        return w
+
+
 class SparseTrackingQP:
     """Differentiable sparse index tracking QP.
 

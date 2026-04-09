@@ -1,0 +1,278 @@
+\documentclass[11pt]{article}
+
+% ---- Packages ----
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{parskip}
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+% ---- Title ----
+\title{\textbf{End-to-End Learning for Sparse Index Tracking} \\[6pt]
+\large CSCI 619: End-to-End Learning and Optimization --- Project Proposal}
+\author{
+  \textbf{Team BrewNet} \\[4pt]
+  Aojie Yuan \quad Haiyue Zhang  \\[2pt]
+  University of Southern California
+}
+\date{March 17, 2026}
+
+\begin{document}
+\maketitle
+
+% ============================================================
+\section{Introduction and Motivation}
+% ============================================================
+
+Index tracking is a cornerstone of passive investment management. Exchange-traded funds (ETFs) and institutional portfolios routinely seek to replicate the performance of a broad market index such as the S\&P~500. In practice, however, holding all 500 constituent stocks is often infeasible for smaller funds due to transaction costs, management overhead, and liquidity constraints. A natural alternative is \emph{sparse} index tracking: selecting a small subset of $K \ll N$ stocks and choosing their weights to minimize tracking error against the benchmark.
+
+The standard approach treats this as a two-stage pipeline. First, a statistical model estimates the joint covariance structure of asset returns from historical data and auxiliary features. Second, a quadratic program (QP) takes this estimate as input and solves for the optimal sparse portfolio. This separation is convenient but introduces a fundamental misalignment: the prediction model is typically trained to minimize the Frobenius-norm error over the \emph{full} $N \times N$ covariance matrix, whereas the downstream tracking error depends on only the $K \times K$ sub-matrix of selected stocks and their covariances with the index.
+
+Critically, this mismatch is not simply a matter of ``wasting statistical budget.'' Standard covariance estimators estimate each entry independently, so no budget is being spread. The deeper issue is \emph{model misspecification}: any structured estimator (e.g., a factor model with a fixed number of factors, or a shrinkage estimator with a single intensity parameter) has limited capacity to fit the full covariance. When trained under MSE, this limited capacity is allocated to minimize average error across \emph{all} entries. Decision-focused learning (DFL) can instead direct the model's limited representational capacity toward the entries that matter for the downstream portfolio decision. This distinction becomes more pronounced as $K$ shrinks, since the decision depends on a progressively smaller fraction of the full covariance.
+
+In this project, we propose to embed the sparse tracking QP directly into the training loop of the covariance prediction model. Rather than optimizing prediction accuracy as a proxy, we train the model end-to-end to minimize realized tracking error --- the quantity we ultimately care about. Our central hypothesis is that \textbf{DFL provides increasing gains over the two-stage approach as the cardinality budget $K$ decreases and as model misspecification increases}, precisely because these conditions amplify the gap between what MSE optimizes and what the decision actually requires.
+
+% ============================================================
+\section{Connection to Course Themes}
+% ============================================================
+
+Three structural properties make sparse index tracking a natural testbed for the methods studied in this course.
+
+First, the problem exhibits \textbf{asymmetric sensitivity} between prediction error and decision quality. Not all covariance entries contribute equally to tracking error; the downstream cost of a prediction mistake depends on whether the corresponding stock pair appears in the selected portfolio. This is precisely the setting where task-aware losses such as SPO+ \citep{elmachtoub2022smart} outperform generic losses like MSE.
+
+Second, the sparsity requirement introduces a \textbf{tension between discrete selection and continuous weight optimization}. In its exact form, the problem requires choosing a subset $\mathcal{S}$ of $K$ assets (a combinatorial decision) and then solving a continuous QP over only those assets. We study two approaches to handling this tension, each connecting to a different strand of the course:
+\begin{itemize}[nosep]
+  \item \textbf{Hard-$K$ selection with fixed or score-based subsets}, followed by a differentiable QP over the selected assets. When the selection is fixed (e.g., top-$K$ by market capitalization or tracking score), the QP is a smooth function of $\hat{\Sigma}$ and gradients flow cleanly via KKT differentiation \citep{agrawal2019differentiable}.
+  \item \textbf{$\ell_1$-penalized relaxation}, where the cardinality constraint is replaced by an $\ell_1$ penalty $\lambda \|\mathbf{w}\|_1$ in the objective. This yields a single continuous QP that is fully differentiable, but does \emph{not} guarantee exactly $K$ nonzero weights. We compare both formulations experimentally.
+\end{itemize}
+
+Third, in both cases the optimization layer is a \textbf{convex QP} --- efficiently solvable and differentiable through KKT-based implicit differentiation \citep{agrawal2019differentiable}, letting us leverage cvxpylayers directly.
+
+% ============================================================
+\section{Related Work}
+% ============================================================
+
+\textbf{Sparse index tracking} has a rich history in operations research and portfolio optimization. \citet{benidis2018sparse} survey $\ell_1$-penalized and mixed-integer formulations for cardinality-constrained portfolio selection. Recent approaches incorporate deep learning for covariance estimation \citep{xu2024deep}, but these still follow the two-stage paradigm: the predictive model is agnostic to the downstream optimization.
+
+The \textbf{decision-focused learning} framework addresses exactly this gap. \citet{elmachtoub2022smart} introduced the SPO+ surrogate loss for linear programs, providing both theoretical guarantees and practical algorithms for training predictors jointly with optimization objectives. \citet{wilder2019melding} extended DFL to combinatorial settings through continuous relaxations, while \citet{donti2017task} demonstrated end-to-end training with differentiable QP layers for stochastic energy scheduling. The cvxpylayers library of \citet{agrawal2019differentiable} generalized this capability to arbitrary disciplined convex programs.
+
+Within \textbf{portfolio optimization}, \citet{butler2023integrating} showed that DFL improves out-of-sample Sharpe ratios in dense mean-variance portfolios. Their work, however, does not impose cardinality constraints. To our knowledge, no prior study has applied DFL to the sparse index tracking problem, where the cardinality constraint creates the asymmetric sensitivity structure that most strongly motivates decision-focused learning. Our project aims to fill this gap.
+
+% ============================================================
+\section{Proposed Approach}
+% ============================================================
+
+\subsection{Optimization Formulation}
+
+Let $\mathbf{r}_t \in \mathbb{R}^N$ denote the vector of asset returns at time $t$ and $r_t^{\mathrm{idx}}$ the index return. We define the single-period \emph{tracking error} of a portfolio with weights $\mathbf{w}$ as:
+\[
+  \mathrm{TE}_t(\mathbf{w}) = \mathbf{w}^\top \mathbf{r}_t - r_t^{\mathrm{idx}}.
+\]
+The expected squared tracking error, conditional on features $\mathbf{x}_t$, is:
+\begin{align}
+  \mathbb{E}\bigl[\mathrm{TE}_t(\mathbf{w})^2 \mid \mathbf{x}_t\bigr]
+    &= \mathbf{w}^\top \Sigma \, \mathbf{w}
+      - 2\,\mathbf{w}^\top \boldsymbol{\sigma}_{\mathrm{idx}}
+      + \sigma_{\mathrm{idx}}^2, \label{eq:te-expansion}
+\end{align}
+where $\Sigma = \mathrm{Cov}(\mathbf{r}_t \mid \mathbf{x}_t)$, $\boldsymbol{\sigma}_{\mathrm{idx}} = \mathrm{Cov}(\mathbf{r}_t, r_t^{\mathrm{idx}} \mid \mathbf{x}_t)$, and $\sigma_{\mathrm{idx}}^2 = \mathrm{Var}(r_t^{\mathrm{idx}} \mid \mathbf{x}_t)$.  Since $\Sigma$ is not directly observed, we estimate it from a trailing 63-trading-day window of realized returns, yielding $\hat{\Sigma}_{\mathrm{sample}}$, and optionally apply Ledoit--Wolf shrinkage (see Section~\ref{sec:shrinkage}).
+
+We study two formulations for the sparse tracking problem:
+
+\textbf{Formulation A: Hard-$K$ selection + QP.}\; First, select a subset $\mathcal{S} \subseteq \{1,\dots,N\}$ with $|\mathcal{S}| = K$. Then solve the reduced QP over only the selected stocks:
+\begin{align}
+  \min_{\mathbf{w}_\mathcal{S}} \quad & \mathbf{w}_\mathcal{S}^\top \hat{\Sigma}_{\mathcal{S}\mathcal{S}}\, \mathbf{w}_\mathcal{S}
+    - 2\,\mathbf{w}_\mathcal{S}^\top \hat{\boldsymbol{\sigma}}_{\mathrm{idx},\mathcal{S}}
+    \label{eq:hard-k}\\
+  \text{s.t.} \quad & \mathbf{1}^\top \mathbf{w}_\mathcal{S} = 1, \quad
+    \mathbf{w}_\mathcal{S} \geq 0. \notag
+\end{align}
+The selection of $\mathcal{S}$ can be \emph{fixed} (top-$K$ by market capitalization) or \emph{score-based} (ranking stocks by a covariance-aware tracking score). When $\mathcal{S}$ is held fixed across the training pass, the QP is a smooth function of $\hat{\Sigma}$ and fully differentiable.
+
+\textbf{Formulation B: $\ell_1$-penalized QP.}\; We solve a single QP over all $N$ assets with an $\ell_1$ penalty to encourage sparsity:
+\begin{align}
+  \min_{\mathbf{w}} \quad & \mathbf{w}^\top \hat{\Sigma}\, \mathbf{w}
+    - 2\,\mathbf{w}^\top \hat{\boldsymbol{\sigma}}_{\mathrm{idx}}
+    + \lambda \|\mathbf{w}\|_1 \label{eq:l1}\\
+  \text{s.t.} \quad & \mathbf{1}^\top \mathbf{w} = 1, \quad
+    \mathbf{w} \geq 0. \notag
+\end{align}
+This is a convex relaxation; $\lambda$ controls sparsity but does \emph{not} guarantee exactly $K$ nonzero weights. We compare both formulations experimentally.
+
+\textbf{Temporal structure and turnover.}\; We model the time-horizon aspect of tracking via periodic rebalancing (monthly by default). At each rebalancing date $t$, we solve one of the QPs above using features $\mathbf{x}_t$ and hold the resulting portfolio until the next rebalance. To penalize excessive portfolio churn, we optionally add a turnover regularizer $\gamma \|\mathbf{w}_t - \mathbf{w}_{t-1}\|_1$ to the training loss. In the hard-$K$ formulation, we further compare two regimes: (i)~\emph{fixed selection}, where $\mathcal{S}$ is chosen once and held for the entire test window, and (ii)~\emph{dynamic selection}, where $\mathcal{S}$ is re-chosen at each rebalancing date, with turnover costs incurred.
+
+\subsection{Baseline: Predict, Then Optimize}
+
+In the two-stage baseline, we first train the covariance model by minimizing the Frobenius-norm loss:
+\[
+  \mathcal{L}_{\mathrm{MSE}} = \bigl\|\hat{\Sigma}(\mathbf{x}_t;\theta) - \hat{\Sigma}_{\mathrm{realized},t}\bigr\|_F^2,
+\]
+where $\hat{\Sigma}_{\mathrm{realized},t}$ is the sample covariance estimated from a trailing 63-day window of returns ending at date $t$. A standard decision-blind pipeline can use exactly the same rolling-window data and Ledoit--Wolf shrinkage to produce $\hat{\Sigma}$, then plug it into the QP; the question is whether learning to predict $\hat{\Sigma}$ \emph{jointly} with the QP can outperform this approach.
+
+We also include a \textbf{naive market-capitalization baseline}: for each rebalancing date, select the top-$K$ stocks by market cap and weight them proportionally to their index weights. Since the S\&P~500 is market-cap-weighted, the largest holdings already account for a substantial share of total index value, so this simple baseline may achieve surprisingly low tracking error without any optimization.
+
+\subsection{DFL: End-to-End Training}
+
+In the DFL approach, we embed the QP as a differentiable layer using cvxpylayers. The training loss is the realized tracking error over a forward-looking holding period of $H$ days (default $H=21$, one trading month):
+\[
+  \mathcal{L}_{\mathrm{task}}
+    = \frac{1}{H}\sum_{s=1}^{H}\bigl(\mathbf{w}^*(\hat{\Sigma}_t)^\top \mathbf{r}_{t+s}
+      - r_{t+s}^{\mathrm{idx}}\bigr)^2
+      + \gamma \|\mathbf{w}^*_t - \mathbf{w}^*_{t-1}\|_1,
+\]
+where $\mathbf{w}^*(\hat{\Sigma}_t)$ is the optimal portfolio returned by the QP layer and $\gamma$ controls the turnover penalty. Gradients flow backward through the KKT conditions of the QP into the parameters $\theta$ of the prediction model, so the model learns to produce covariance estimates that lead to better \emph{decisions} rather than better \emph{predictions} per se.
+
+\subsection{Prediction Architectures}
+
+To disentangle the effect of DFL from the choice of prediction model, we consider three architectures of increasing complexity:
+
+\textbf{Shrinkage estimator.}\; The simplest model: $\hat{\Sigma} = (1-\alpha)\hat{\Sigma}_{\mathrm{sample}} + \alpha \cdot \mu I$, with a single learnable parameter $\alpha \in [0,1]$. When trained under MSE, this recovers the analytical Ledoit--Wolf solution. When trained under task loss, $\alpha$ is tuned to minimize tracking error directly --- a light-touch DFL that isolates the value of decision-aware shrinkage tuning.
+\label{sec:shrinkage}
+
+\textbf{Factor model.}\; $\hat{\Sigma} = BFB^\top + D$, where the factor loadings $B \in \mathbb{R}^{N \times K_f}$ are predicted from features, $F$ is a diagonal matrix of factor variances, and $D$ is a diagonal idiosyncratic variance matrix. The number of factors $K_f$ controls model capacity; reducing $K_f$ induces deliberate misspecification, providing a natural experimental knob to test our hypothesis that DFL gains increase with misspecification.
+
+\textbf{Neural covariance estimator.}\; An MLP maps per-stock features to a low-rank-plus-diagonal decomposition $\hat{\Sigma} = LL^\top + D$, where $L \in \mathbb{R}^{N \times r}$ and $D$ is diagonal with positive entries. This is the most flexible model and serves as an upper bound on representational capacity.
+
+Each architecture is trained under both MSE and task loss, producing a $3 \times 2$ comparison that isolates the contribution of DFL at each level of model complexity.
+
+% ============================================================
+\section{Data and Experimental Plan}
+% ============================================================
+
+\subsection{Dataset}
+
+Our investment universe consists of S\&P~500 constituent stocks over the period 2006--2025, obtained at daily frequency from Yahoo Finance via the \texttt{yfinance} Python package. This source is free, requires no institutional access, and provides adjusted close prices accounting for splits and dividends. We construct four groups of features for each stock at each rebalancing date: (1)~trailing 21-day realized volatility, (2)~63-day price momentum, (3)~GICS sector membership as a one-hot encoding, and (4)~market-capitalization quintile. The benchmark is the S\&P~500 Total Return Index. All experiments use a rolling-window protocol: train on 3~years of data, validate on the subsequent 6~months, test on the following year, then roll forward by one year. This produces approximately 15 non-overlapping test windows spanning multiple market regimes.
+
+\subsection{Experiments}
+
+Our experiments are organized around six axes. All experiments report results across all rolling-window folds; error bars reflect cross-fold variation.
+
+\textit{Experiment~1: Cardinality sweep.}
+We vary $K \in \{10, 20, 50, 100\}$ under the hard-$K$ formulation and compare tracking error for each method (naive market-cap, Ledoit--Wolf + QP, factor model + QP, and their DFL counterparts). Our primary hypothesis is that DFL's advantage grows as $K$ decreases.
+
+\textit{Experiment~2: Model misspecification via factor count.}
+Using the factor model, we sweep the number of factors $K_f \in \{3, 5, 10, 20\}$ at a fixed sparsity $K=20$. Fewer factors mean greater misspecification. We hypothesize that DFL's gain over MSE increases as $K_f$ decreases, since the model's limited capacity is allocated differently under the two losses. This is a more interpretable experimental knob than comparing entirely different architectures.
+
+\textit{Experiment~3: Shrinkage intensity tuning.}
+We compare three ways to set the Ledoit--Wolf shrinkage parameter $\alpha$: (a)~the analytical formula of \citet{ledoit2004well}, (b)~cross-validated on held-out MSE, and (c)~tuned via task loss (our learnable $\alpha$ model). This isolates the minimal DFL intervention --- a single scalar --- and tests whether even this light-touch approach yields measurable gains.
+
+\textit{Experiment~4: Hard-$K$ vs.\ $\ell_1$ relaxation.}
+At matched effective sparsity levels, we compare the hard-$K$ formulation (Eq.~\ref{eq:hard-k}) with the $\ell_1$ relaxation (Eq.~\ref{eq:l1}). For hard-$K$, we test both fixed selection (top-$K$ by market cap, held constant) and dynamic score-based re-selection at each rebalance. This directly addresses whether the discrete nature of the problem matters and how turnover costs interact with the sparsity method.
+
+\textit{Experiment~5: Market regime analysis.}
+We partition test windows into bull, bear, and high-volatility regimes (classified by the VIX level at the start of each window) and report tracking error by regime. We expect DFL to provide larger gains in high-volatility periods, where covariance estimation is noisier.
+
+\textit{Experiment~6: Fixed vs.\ dynamic stock selection.}
+Under the hard-$K$ formulation, we compare: (i)~selecting $\mathcal{S}$ once at the start of each test window and holding it fixed, versus (ii)~re-selecting $\mathcal{S}$ at each monthly rebalance. Dynamic selection allows adaptation but incurs turnover; we measure both tracking error and realized turnover to assess the trade-off.
+
+\subsection{Baselines}
+
+We compare against the following decision-blind baselines:
+\begin{enumerate}[nosep]
+  \item \textbf{Naive market-cap}: top-$K$ stocks weighted by their index weights. No optimization.
+  \item \textbf{Ledoit--Wolf + QP}: analytical shrinkage with $\alpha$ from \citet{ledoit2004well}, then QP.
+  \item \textbf{Factor model (MSE) + QP}: factor model trained on Frobenius loss, then QP.
+  \item \textbf{Neural model (MSE) + QP}: neural covariance model trained on Frobenius loss, then QP.
+\end{enumerate}
+
+\subsection{Evaluation}
+
+Our primary metric is annualized tracking error, defined as $\mathrm{std}(\mathbf{w}^\top \mathbf{r}_t - r_t^{\mathrm{idx}}) \times \sqrt{252}$. We also report maximum tracking deviation over each test window, portfolio turnover at each rebalance, effective sparsity (number of nonzero weights), and the information ratio. As a diagnostic, we visualize which entries of the covariance matrix receive higher effective ``attention'' under task-loss training compared to MSE training.
+
+% ============================================================
+\section{Feasibility}
+% ============================================================
+
+Several practical considerations could affect the success of this project; we outline them here along with our planned mitigations.
+
+\textbf{Computational cost.}\; Differentiating through the QP can become expensive as $N$ grows. We pre-screen the universe to the 100 largest stocks by market capitalization at each rebalancing date, reducing the QP dimension while retaining the stocks most likely to appear in a tracking portfolio. Under the hard-$K$ formulation, the QP is only $K$-dimensional ($K \leq 50$), making backward passes fast. We also warm-start the QP solver with the previous solution.
+
+\textbf{Covariance estimation noise and the role of shrinkage.}\; With $N=100$ stocks and a 63-day estimation window, the ratio $N/T \approx 1.6$ places us squarely in the regime where the sample covariance is poorly conditioned. Ledoit--Wolf shrinkage \citep{ledoit2004well} addresses this by combining $\hat{\Sigma}_{\mathrm{sample}}$ with a scaled identity target via a single shrinkage intensity $\alpha$, which has an analytical closed-form minimizing expected Frobenius loss. However, the optimal $\alpha$ for \emph{prediction} (Frobenius loss) need not be optimal for the \emph{decision} (tracking error). Experiment~3 tests this directly. The factor model provides an alternative form of regularization by reducing free parameters from $O(N^2)$ to $O(N K_f)$.
+
+\textbf{Sparsity enforcement.}\; Under the $\ell_1$ formulation, the penalty does not guarantee exactly $K$ nonzero weights. If exact cardinality is needed, two options are available: (a)~the hard-$K$ formulation with explicit subset selection, or (b)~applying a post-hoc ``repair layer'' that projects the $\ell_1$ solution onto the $K$-sparse feasible set. We primarily rely on the hard-$K$ formulation and use the $\ell_1$ version as a comparison point.
+
+\textbf{Overfitting risk.}\; DFL could overfit to the training regime --- for example, learning a covariance model that works well in calm markets but fails during crises. Our rolling-window protocol mitigates this by ensuring that every model is evaluated out-of-sample across diverse market conditions, including the 2008 financial crisis, the 2020 COVID crash, and the 2022 rate-hiking cycle.
+
+\textbf{Naive baseline as a sanity check.}\; Because the S\&P~500 is market-cap-weighted, the top-$K$ stocks by market cap already account for a large fraction of the index. For example, the top 10 stocks represent roughly 30--35\% of total index weight. Any sophisticated method must demonstrably outperform this trivial baseline to justify its complexity.
+
+% ============================================================
+\section{Timeline}
+% ============================================================
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Period} & \textbf{Milestone} \\
+\midrule
+Mar 18 -- Mar 31 & Data pipeline, features, rolling-window splitter (done) \\
+Apr 1 -- Apr 9   & Implement baselines: naive market-cap, Ledoit--Wolf + QP, factor (MSE) + QP \\
+Apr 10 -- Apr 16 & Implement DFL pipeline (hard-$K$ + $\ell_1$); shrinkage $\alpha$-tuning experiment \\
+Apr 17 -- Apr 22 & Run Experiments 1--3 (cardinality sweep, factor-count sweep, shrinkage) \\
+Apr 23 -- Apr 27 & Run Experiments 4--6 (hard-$K$ vs $\ell_1$, regime, fixed vs dynamic); slides \\
+Apr 28 -- May 4  & Final presentation; incorporate feedback \\
+May 5 -- May 11  & Write final report; finalize code repository \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+% References
+% ============================================================
+\bibliographystyle{plainnat}
+
+\begin{thebibliography}{10}
+
+\bibitem[Agrawal et~al.(2019)]{agrawal2019differentiable}
+A.~Agrawal, B.~Amos, S.~Barratt, S.~Boyd, S.~Diamond, and J.~Z. Kolter.
+\newblock Differentiable convex optimization layers.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2019.
+
+\bibitem[Amos and Kolter(2017)]{amos2017optnet}
+B.~Amos and J.~Z. Kolter.
+\newblock {OptNet}: Differentiable optimization as a layer in neural networks.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2017.
+
+\bibitem[Benidis et~al.(2018)]{benidis2018sparse}
+K.~Benidis, Y.~Feng, and D.~P. Palomar.
+\newblock Sparse portfolios for high-dimensional financial index tracking.
+\newblock \emph{IEEE Transactions on Signal Processing}, 66(1):155--170, 2018.
+
+\bibitem[Butler and Kwon(2023)]{butler2023integrating}
+A.~Butler and R.~H. Kwon.
+\newblock Integrating prediction and optimization for smart portfolio management.
+\newblock In \emph{ICML Workshop on New Frontiers in Learning, Control, and Dynamical Systems}, 2023.
+
+\bibitem[Donti et~al.(2017)]{donti2017task}
+P.~L. Donti, B.~Amos, and J.~Z. Kolter.
+\newblock Task-based end-to-end model learning in stochastic optimization.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2017.
+
+\bibitem[Elmachtoub and Grigas(2022)]{elmachtoub2022smart}
+A.~N. Elmachtoub and P.~Grigas.
+\newblock Smart ``predict, then optimize''.
+\newblock \emph{Management Science}, 68(1):9--26, 2022.
+
+\bibitem[Ledoit and Wolf(2004)]{ledoit2004well}
+O.~Ledoit and M.~Wolf.
+\newblock A well-conditioned estimator for large-dimensional covariance matrices.
+\newblock \emph{Journal of Multivariate Analysis}, 88(2):365--411, 2004.
+
+\bibitem[Wilder et~al.(2019)]{wilder2019melding}
+B.~Wilder, B.~Dilkina, and M.~Tambe.
+\newblock Melding the data-decisions pipeline: Decision-focused learning for combinatorial optimization.
+\newblock In \emph{AAAI Conference on Artificial Intelligence}, 2019.
+
+\bibitem[Xu et~al.(2024)]{xu2024deep}
+D.~Xu, et~al.
+\newblock Deep learning for covariance estimation in portfolio optimization.
+\newblock \emph{Journal of Financial Economics}, 2024.
+
+\end{thebibliography}
+
+\end{document}
