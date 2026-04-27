@@ -1,7 +1,7 @@
 [project]
 name = "sparse-index-tracking"
 version = "0.1.0"
-description = "End-to-End Learning for Sparse Index Tracking (CSCI 619)"
+description = "End-to-End Learning for Sparse Index Tracking (DSO 619 / CSCI 619 / ISE 619)"
 authors = [
     { name = "Aojie Yuan" },
     { name = "Haiyue Zhang" },

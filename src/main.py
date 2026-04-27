@@ -18,9 +18,15 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from src.data import SP500DataLoader, FeatureBuilder, RollingWindowSplitter, generate_synthetic_data
-from src.models import FactorCovarianceModel, NeuralCovarianceModel, ShrinkageCovarianceModel
+from src.models import (
+    FactorCovarianceModel,
+    NeuralCovarianceModel,
+    ShrinkageCovarianceModel,
+    ConditionalShrinkageModel,
+    StructuredShrinkageModel,
+)
 from src.optimization.qp_layer import SparseTrackingQP, L1TrackingQP
-from src.optimization.solver import solve_tracking_qp, solve_tracking_qp_l1, naive_index_weights
+from src.optimization.solver import solve_tracking_qp, solve_tracking_qp_tc, solve_tracking_qp_l1, naive_index_weights
 from src.training import Trainer
 from src.evaluation.metrics import (
     tracking_error,
@@ -82,6 +88,19 @@ def _build_model(
         return ShrinkageCovarianceModel(
             n_stocks=n_stocks,
             init_alpha=cfg.model.get("shrinkage", {}).get("init_alpha", 0.5),
+        )
+    elif cfg.model.name == "conditional_shrinkage":
+        return ConditionalShrinkageModel(
+            n_stocks=n_stocks,
+            n_market_features=5,
+            hidden_dim=cfg.model.get("conditional_shrinkage", {}).get("hidden_dim", 16),
+            init_alpha=cfg.model.get("conditional_shrinkage", {}).get("init_alpha", 0.5),
+        )
+    elif cfg.model.name == "structured_shrinkage":
+        return StructuredShrinkageModel(
+            n_stocks=n_stocks,
+            n_sectors=11,
+            init_alpha=cfg.model.get("structured_shrinkage", {}).get("init_alpha", 0.5),
         )
     else:
         raise ValueError(f"Unknown model: {cfg.model.name}")
@@ -241,6 +260,8 @@ def run_experiment(cfg: DictConfig) -> dict:
             qp_form = cfg.optimization.get("qp_formulation", "hard_k")
             l1_lam = cfg.optimization.get("l1_lambda", 0.01)
 
+            tc_cost = cfg.optimization.get("tc_cost", 0.0)
+
             trainer = Trainer(
                 model=model,
                 feature_builder=fb,
@@ -255,7 +276,10 @@ def run_experiment(cfg: DictConfig) -> dict:
                 selection=cfg.optimization.get("selection", "market_cap"),
                 qp_formulation=qp_form,
                 l1_lambda=l1_lam,
+                lookahead_steps=cfg.training.get("lookahead_steps", 1),
+                curriculum_epochs=cfg.training.get("curriculum_epochs", 0),
             )
+            trainer.tc_cost = tc_cost
 
             history = trainer.train(
                 returns_train=ret_train.values,
@@ -286,16 +310,28 @@ def run_experiment(cfg: DictConfig) -> dict:
                 features_np = fb.build_features(returns, date)
                 with torch.no_grad():
                     features_t = torch.tensor(features_np, dtype=torch.float32, device=device)
-                    # For shrinkage model, set sample covariance
-                    if isinstance(model, ShrinkageCovarianceModel):
+                    # For shrinkage-family models, set sample covariance
+                    if isinstance(model, (ShrinkageCovarianceModel, ConditionalShrinkageModel, StructuredShrinkageModel)):
                         sample_cov_np = fb.compute_realized_covariance(returns, date, 63)
                         sample_cov_t = torch.tensor(sample_cov_np, dtype=torch.float32, device=device)
                         model.set_sample_covariance(sample_cov_t)
+                    # For conditional shrinkage, set market features
+                    if isinstance(model, ConditionalShrinkageModel):
+                        mkt_feat_np = fb.build_market_features(returns, date, 63)
+                        mkt_feat_t = torch.tensor(mkt_feat_np, dtype=torch.float32, device=device)
+                        model.set_market_features(mkt_feat_t)
                     cov_pred = model(features_t).cpu().numpy()
 
                 try:
+                    w_prev_np = weights_history[-1] if weights_history else None
                     if qp_form == "l1":
                         w_opt = solve_tracking_qp_l1(cov_pred, w_index, lam=l1_lam)
+                    elif tc_cost > 0:
+                        # Annualize covariance so TC cost (in annual bps) is on same scale
+                        cov_annual = 252.0 * cov_pred
+                        w_opt = solve_tracking_qp_tc(cov_annual, w_index, K=K,
+                                                     w_prev=w_prev_np, tc_cost=tc_cost,
+                                                     selection=cfg.optimization.get("selection", "market_cap"))
                     else:
                         w_opt = solve_tracking_qp(cov_pred, w_index, K=K, selection=cfg.optimization.get("selection", "market_cap"))
                 except Exception as e:
@@ -334,11 +370,13 @@ def run_experiment(cfg: DictConfig) -> dict:
                 "qp_formulation": qp_form,
                 "selection": cfg.optimization.get("selection", "market_cap"),
                 "n_factors": cfg.model.factor.n_factors if cfg.model.name == "factor" else None,
+                "tc_cost": tc_cost,
                 "tracking_error": te,
                 "max_tracking_deviation": mtd,
                 "information_ratio": ir,
                 "avg_sparsity": avg_sparsity,
                 "avg_turnover": avg_turnover,
+                "net_cost": te + tc_cost * avg_turnover,
                 "test_start": str(fold_info.test_start.date()),
                 "test_end": str(fold_info.test_end.date()),
                 "portfolio_returns": portfolio_rets.tolist(),
@@ -361,8 +399,25 @@ def main(cfg: DictConfig) -> None:
     out_dir = Path("results")
     out_dir.mkdir(exist_ok=True)
     lam = cfg.training.get("turnover_penalty", 0.0)
-    lam_str = f"_lambda{lam}" if lam != 0.1 else ""
-    out_path = out_dir / f"{cfg.model.name}_{cfg.training.loss}{lam_str}_results.json"
+    # Build descriptive filename to avoid overwrites
+    parts = [cfg.model.name, cfg.training.loss]
+    if cfg.model.name == "factor":
+        parts.append(f"kf{cfg.model.factor.n_factors}")
+    ks = cfg.optimization.sparsity_levels
+    if len(ks) == 1:
+        parts.append(f"K{ks[0]}")
+    qp = cfg.optimization.get("qp_formulation", "hard_k")
+    if qp != "hard_k":
+        parts.append(qp)
+    sel = cfg.optimization.get("selection", "market_cap")
+    if sel != "market_cap":
+        parts.append(sel)
+    if lam != 0.0:
+        parts.append(f"gamma{lam}")
+    tc = cfg.optimization.get("tc_cost", 0.0)
+    if tc != 0.0:
+        parts.append(f"tc{tc}")
+    out_path = out_dir / f"{'_'.join(parts)}_results.json"
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     log.info(f"Results saved to {out_path}")

@@ -1,0 +1,166 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.05118333638963443,
+      "avg_turnover": 0.10497253042633678,
+      "test_start": "2016-08-04",
+      "test_end": "2017-08-04"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.033023321014779186,
+      "avg_turnover": 0.04762415713465514,
+      "test_start": "2016-08-04",
+      "test_end": "2017-08-04"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.048543961687743324,
+      "avg_turnover": 0.014988147278682255,
+      "test_start": "2017-08-04",
+      "test_end": "2018-08-03"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.026359989162910928,
+      "avg_turnover": 0.060632388436602354,
+      "test_start": "2017-08-04",
+      "test_end": "2018-08-03"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.05341061508662912,
+      "avg_turnover": 0.030834360804555358,
+      "test_start": "2018-08-06",
+      "test_end": "2019-08-02"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.02765405579195827,
+      "avg_turnover": 0.026224833909119352,
+      "test_start": "2018-08-06",
+      "test_end": "2019-08-02"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.04486000474566622,
+      "avg_turnover": 0.005673204560840509,
+      "test_start": "2019-08-05",
+      "test_end": "2020-08-04"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.030446686858414965,
+      "avg_turnover": 0.1067707252206477,
+      "test_start": "2019-08-05",
+      "test_end": "2020-08-04"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.05607953468824504,
+      "avg_turnover": 0.03979755512383552,
+      "test_start": "2020-08-04",
+      "test_end": "2021-08-04"
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.03144537900819651,
+      "avg_turnover": 0.044693542419839964,
+      "test_start": "2020-08-04",
+      "test_end": "2021-08-04"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.05440899533070946,
+      "avg_turnover": 0.02645225749583557,
+      "test_start": "2021-08-04",
+      "test_end": "2022-08-04"
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.03240788243732941,
+      "avg_turnover": 0.055787261381350595,
+      "test_start": "2021-08-04",
+      "test_end": "2022-08-04"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.04767860703333336,
+      "avg_turnover": 0.05162552893633393,
+      "test_start": "2022-08-04",
+      "test_end": "2023-08-04"
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.028846657248266797,
+      "avg_turnover": 0.08550283153188772,
+      "test_start": "2022-08-04",
+      "test_end": "2023-08-04"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.045782179242808536,
+      "avg_turnover": 0.03194376932695925,
+      "test_start": "2023-08-04",
+      "test_end": "2024-08-02"
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.026832179511511074,
+      "avg_turnover": 0.010730081565929738,
+      "test_start": "2023-08-04",
+      "test_end": "2024-08-02"
+    },
+    {
+      "fold": 8,
+      "K": 10,
+      "model": "random_search_structured",
+      "tracking_error": 0.05220375747038606,
+      "avg_turnover": 0.048348700657985584,
+      "test_start": "2024-08-05",
+      "test_end": "2025-08-04"
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "model": "random_search_structured",
+      "tracking_error": 0.028835598065391474,
+      "avg_turnover": 0.05843945855231328,
+      "test_start": "2024-08-05",
+      "test_end": "2025-08-04"
+    }
+  ]
+}

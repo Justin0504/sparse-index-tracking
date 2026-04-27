@@ -177,6 +177,7 @@ class SparseTrackingQP:
         solver_args: dict | None = None,
         selection: str = "market_cap",
         w_prev: torch.Tensor | None = None,
+        tc_cost: float = 0.0,
     ) -> torch.Tensor:
         """Select top-K stocks then solve reduced tracking QP.
 
@@ -188,6 +189,7 @@ class SparseTrackingQP:
         hard : bool — if True, use exact QP (evaluation); else unrolled (training)
         selection : str — "market_cap" (stable) or "tracking_score" (covariance-aware)
         w_prev : Tensor (N,) | None — previous portfolio weights for warm-starting PGD
+        tc_cost : float — transaction cost coefficient for ||w - w_prev||_1
         """
         N = cov.shape[0]
         K = min(K, N)
@@ -205,17 +207,21 @@ class SparseTrackingQP:
         cov_SN = cov[selected_sorted]                       # (K, N)
         b = cov_SN @ w_idx  # (K,) — cov of selected stocks with index portfolio
 
-        # Warm-start: extract previous weights for selected stocks
+        # Warm-start and TC reference: extract previous weights for selected stocks
         w_init = None
+        w_prev_S = None
         if w_prev is not None:
             w_prev_S = w_prev[selected_sorted]
-            if w_prev_S.sum() > 0.01:  # only warm-start if meaningful overlap
-                w_init = w_prev_S / (w_prev_S.sum() + 1e-10)  # re-normalize to simplex
+            if w_prev_S.sum() > 0.01:
+                w_init = w_prev_S / (w_prev_S.sum() + 1e-10)
 
         if hard:
             w_S = self._solve_reduced_exact(cov_SS, b, K, solver_args)
         else:
-            w_S = self._solve_reduced_unrolled(cov_SS, b, K, w_init=w_init)
+            w_S = self._solve_reduced_unrolled(
+                cov_SS, b, K, w_init=w_init,
+                tc_cost=tc_cost, w_ref=w_init,
+            )
 
         # Embed back to N-dimensional vector
         w_full = torch.zeros(N, device=cov.device, dtype=w_S.dtype)
@@ -257,8 +263,15 @@ class SparseTrackingQP:
         n_iters: int = 100,
         step_size: float = 0.5,
         w_init: torch.Tensor | None = None,
+        tc_cost: float = 0.0,
+        w_ref: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Unrolled projected gradient descent on the reduced QP."""
+        """Unrolled projected gradient descent on the reduced QP.
+
+        When tc_cost > 0 and w_ref is provided, solves:
+            min w^T Q w - 2b^T w + tc_cost * ||w - w_ref||_1
+        using proximal gradient descent (smooth part + L1 prox).
+        """
         Q = 0.5 * (cov_SS + cov_SS.T)
         diag_max = torch.max(torch.diag(Q)).clamp(min=1e-8)
         Q = Q + 1e-4 * diag_max * torch.eye(K, device=Q.device, dtype=Q.dtype)
@@ -269,9 +282,21 @@ class SparseTrackingQP:
         else:
             w = torch.ones(K, device=Q.device, dtype=Q.dtype) / K
 
+        use_tc = tc_cost > 0 and w_ref is not None
+
         for _ in range(n_iters):
+            # Gradient of smooth part: w^T Q w - 2b^T w
             grad = 2.0 * (Q @ w - b)
             w = w - effective_step * grad
+
+            # Proximal step for L1 transaction cost: soft-threshold around w_ref
+            if use_tc:
+                threshold = tc_cost * effective_step
+                diff = w - w_ref
+                # Soft-thresholding: sign(d) * max(|d| - threshold, 0)
+                shrunk = torch.sign(diff) * torch.clamp(torch.abs(diff) - threshold, min=0.0)
+                w = w_ref + shrunk
+
             w = _project_simplex(w)
 
         return w

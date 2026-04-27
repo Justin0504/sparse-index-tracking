@@ -32,6 +32,7 @@ optimization:
   selection: "market_cap"                     # market_cap | tracking_score
   qp_formulation: "hard_k"                   # hard_k | l1
   l1_lambda: 0.01                             # ℓ₁ penalty strength (only for l1 formulation)
+  tc_cost: 0.0                                # transaction cost coefficient for ||w - w_prev||_1
 
 # ── Models ──
 model:
@@ -48,6 +49,13 @@ model:
   # Shrinkage model
   shrinkage:
     init_alpha: 0.5
+  # Conditional shrinkage (alpha = MLP(market_features))
+  conditional_shrinkage:
+    hidden_dim: 16
+    init_alpha: 0.5
+  # Structured shrinkage (per-sector target)
+  structured_shrinkage:
+    init_alpha: 0.5
 
 # ── Training ──
 training:
@@ -58,6 +66,8 @@ training:
   batch_size: 32
   patience: 10                  # early stopping patience
   turnover_penalty: 0.0         # λ for turnover regularization in task loss
+  lookahead_steps: 1            # multi-step lookahead (1 = single-step, 2-3 for trajectory)
+  curriculum_epochs: 0          # epochs of pure MSE before transitioning to task loss (0 = disabled)
   seed: 42
   device: "mps"                 # cpu | cuda | mps
 

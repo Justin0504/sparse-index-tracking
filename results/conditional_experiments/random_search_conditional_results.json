@@ -1,0 +1,166 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.050958771848243545,
+      "avg_turnover": 0.12235853112230469,
+      "test_start": "2016-08-04",
+      "test_end": "2017-08-04"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.03224123343308185,
+      "avg_turnover": 0.08824643441635184,
+      "test_start": "2016-08-04",
+      "test_end": "2017-08-04"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.05063253873081306,
+      "avg_turnover": 0.015052645551486098,
+      "test_start": "2017-08-04",
+      "test_end": "2018-08-03"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.0264827162242222,
+      "avg_turnover": 0.06457445529590203,
+      "test_start": "2017-08-04",
+      "test_end": "2018-08-03"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.048539559853088374,
+      "avg_turnover": 0.04626861508858357,
+      "test_start": "2018-08-06",
+      "test_end": "2019-08-02"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.026282135190809387,
+      "avg_turnover": 0.08817938729796648,
+      "test_start": "2018-08-06",
+      "test_end": "2019-08-02"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.050795265735474264,
+      "avg_turnover": 0.09268641465178984,
+      "test_start": "2019-08-05",
+      "test_end": "2020-08-04"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.03126037714240089,
+      "avg_turnover": 0.10599834122167257,
+      "test_start": "2019-08-05",
+      "test_end": "2020-08-04"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.0535463765319409,
+      "avg_turnover": 0.068541812724825,
+      "test_start": "2020-08-04",
+      "test_end": "2021-08-04"
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.029741777706656564,
+      "avg_turnover": 0.06415160015857793,
+      "test_start": "2020-08-04",
+      "test_end": "2021-08-04"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.04939852321997078,
+      "avg_turnover": 0.021935037546411854,
+      "test_start": "2021-08-04",
+      "test_end": "2022-08-04"
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.03609016032058375,
+      "avg_turnover": 0.13052298082853764,
+      "test_start": "2021-08-04",
+      "test_end": "2022-08-04"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.046598945027637256,
+      "avg_turnover": 0.08551191488425376,
+      "test_start": "2022-08-04",
+      "test_end": "2023-08-04"
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.029073050263479828,
+      "avg_turnover": 0.09835053197207347,
+      "test_start": "2022-08-04",
+      "test_end": "2023-08-04"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.04486226777438814,
+      "avg_turnover": 0.08796632802486336,
+      "test_start": "2023-08-04",
+      "test_end": "2024-08-02"
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.027505887914790753,
+      "avg_turnover": 0.029291258313271926,
+      "test_start": "2023-08-04",
+      "test_end": "2024-08-02"
+    },
+    {
+      "fold": 8,
+      "K": 10,
+      "model": "random_search_conditional",
+      "tracking_error": 0.050855124900291225,
+      "avg_turnover": 0.06636791359438872,
+      "test_start": "2024-08-05",
+      "test_end": "2025-08-04"
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "model": "random_search_conditional",
+      "tracking_error": 0.028876290809800313,
+      "avg_turnover": 0.054156348353205395,
+      "test_start": "2024-08-05",
+      "test_end": "2025-08-04"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 End-to-end learning framework for sparse index tracking that trains covariance prediction models by directly minimizing portfolio tracking error through a differentiable optimization layer.
 
-**CSCI 619 Course Project** — Aojie Yuan, Haiyue Zhang
+**DSO 619 / CSCI 619 / ISE 619 Course Project** — Team BrewNet: Aojie Yuan, Haiyue Zhang
 
 ## Key Idea
 
@@ -18,15 +18,15 @@ We replace MSE with a **task loss (Decision-Focused Learning)**: the covariance 
 
 Evaluated on **97 S&P 500 stocks** over **9 rolling folds** (2009–2025), the neural + DFL approach achieves statistically significant tracking error reduction at low sparsity levels — precisely where stock selection is hardest:
 
-| K (# stocks) | Neural+DFL | Neural+MSE | Improvement | p-value |
-|:---:|:---:|:---:|:---:|:---:|
-| 5 | 7.94% | 8.77% | **-9.5%** | 0.001*** |
-| 10 | 4.95% | 5.30% | **-6.6%** | 0.012** |
-| 20 | 2.87% | 3.26% | **-11.9%** | 0.025** |
-| 30 | 2.02% | 2.12% | **-4.5%** | 0.135 |
-| 50 | 1.00% | 1.00% | -0.2% | 0.150 |
+| K (# stocks) | Neural+MSE | Neural+DFL | Improvement | p-value | Folds Won |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 5 | 8.77% | 7.94% | **-9.5%** | 0.002** | 9/9 |
+| 10 | 5.30% | 4.95% | **-6.6%** | 0.002** | 9/9 |
+| 20 | 3.26% | 2.87% | **-11.9%** | 0.002** | 9/9 |
+| 30 | 2.12% | 2.02% | **-4.5%** | 0.002** | 8/9 |
+| 50 | 1.00% | 1.00% | -0.2% | 0.102 | 5/9 |
 
-DFL wins **9/9 folds** at K=5, 10, 20. The advantage diminishes at higher K where sufficient stocks make covariance estimation less critical.
+DFL wins **9/9 folds** at K=5, 10, 20. The advantage diminishes at K=50 where K/N > 0.5 and MSE gradients are already well-aligned with the task.
 
 ## Method
 
@@ -104,9 +104,64 @@ python -m src.main training.lr=3e-4 optimization.sparsity_levels=[5,10,20] train
 | `fig5_cumulative_tracking_K20` | Cumulative portfolio return vs index |
 | `fig6_turnover_ablation` | Turnover penalty (λ) ablation study |
 
-## Requirements
+## Installation
 
-- Python ≥ 3.10
-- PyTorch ≥ 2.2
+```bash
+# Clone the repository
+git clone https://github.com/<your-username>/sparse-index-tracking.git
+cd sparse-index-tracking
+
+# Create environment and install dependencies
+pip install -e .
+# Or install manually:
+pip install torch numpy pandas cvxpy cvxpylayers matplotlib scipy hydra-core
+```
+
+### Requirements
+
+- Python >= 3.10
+- PyTorch >= 2.2
 - cvxpy + cvxpylayers
-- See `pyproject.toml` for full list
+- numpy, pandas, scipy, matplotlib
+- hydra-core (for experiment configuration)
+
+## Usage
+
+```bash
+# Run the main experiment (neural model, task loss, K=20)
+python src/main.py model.name=neural training.loss=task optimization.sparsity_levels=[20]
+
+# Run two-stage MSE baseline
+python src/main.py model.name=neural training.loss=mse optimization.sparsity_levels=[20]
+
+# Run all sparsity levels
+python src/main.py model.name=neural training.loss=task optimization.sparsity_levels=[5,10,20,30,50]
+
+# Run nonlinear shrinkage baseline
+python scripts/run_nlshrink_baseline.py
+
+# Generate figures
+python scripts/plot_presentation_figures.py
+```
+
+## Project Structure
+
+```
+src/
+├── main.py                  # Entry point (Hydra config)
+├── data/
+│   ├── loader.py            # S&P 500 data loader with caching
+│   ├── features.py          # Feature engineering + covariance estimators
+│   └── splitter.py          # Rolling window train/val/test splits
+├── models/                  # Covariance prediction models
+├── training/
+│   └── trainer.py           # Training loop (MSE and task loss)
+├── optimization/
+│   └── solver.py            # Differentiable QP solver (cvxpylayers)
+└── evaluation/
+    └── metrics.py           # Tracking error, turnover, risk metrics
+scripts/                     # Experiment scripts and figure generation
+results/                     # JSON result files (per fold, per model)
+figures/                     # Generated publication figures
+report/                      # LaTeX report and presentation materials
+```

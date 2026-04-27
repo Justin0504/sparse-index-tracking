@@ -13,3 +13,9 @@ results_backup*/
 wandb/
 .DS_Store
 multirun/
+*.zip
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

@@ -1,0 +1,436 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.027784189546732695,
+      "avg_turnover": 0.001945875580162486
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.026411180169396368,
+      "avg_turnover": 0.004594794953339655
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.027646253559438474,
+      "avg_turnover": 0.0014866089023533513
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.0345549013372781,
+      "avg_turnover": 0.0029243115673247594
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.030740352776222953,
+      "avg_turnover": 0.0023366311007794872
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.047105099334284986,
+      "avg_turnover": 0.0014540900987866452
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.03769428490218845,
+      "avg_turnover": 0.0028466985975069883
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.029350849394701475,
+      "avg_turnover": 0.0029781008800521475
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "mse",
+      "tracking_error": 0.030780304988187488,
+      "avg_turnover": 0.0011219396843999984
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.02659159337616203,
+      "avg_turnover": 0.01832678952740442
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.026352269735159483,
+      "avg_turnover": 0.0007792195659293754
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.026984698239888277,
+      "avg_turnover": 0.011551291398672543
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.03079264847425451,
+      "avg_turnover": 0.018796801823444696
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.030342777452977455,
+      "avg_turnover": 0.0014982627921883223
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.032481753964819636,
+      "avg_turnover": 0.02181191675966534
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.028278034654522492,
+      "avg_turnover": 0.024003357627332262
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.02746149652781075,
+      "avg_turnover": 0.008794786748916537
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "weekly",
+      "loss": "task",
+      "tracking_error": 0.02814082889423493,
+      "avg_turnover": 0.013324346271907669
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.027760712356713832,
+      "avg_turnover": 0.0025854080162904802
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.02637865998830338,
+      "avg_turnover": 0.005618768657148315
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.027644910555072334,
+      "avg_turnover": 0.001874509856009457
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.03458567728949262,
+      "avg_turnover": 0.0036343249419064035
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.03074318180522592,
+      "avg_turnover": 0.0030137051897256954
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.047071848724498856,
+      "avg_turnover": 0.0017271848298676916
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.037686223301367346,
+      "avg_turnover": 0.004123714675331155
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.029407564531083348,
+      "avg_turnover": 0.004083905182589258
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "mse",
+      "tracking_error": 0.030776460361179946,
+      "avg_turnover": 0.0014237332433677762
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.02727062321921642,
+      "avg_turnover": 0.024239719596411503
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.026360965344595852,
+      "avg_turnover": 0.0010002024721943424
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.02698763040979966,
+      "avg_turnover": 0.01590493994367988
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.030594339286096877,
+      "avg_turnover": 0.027162199759477246
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.030345676843834626,
+      "avg_turnover": 0.0019422227950228511
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.033037594247239406,
+      "avg_turnover": 0.032917305352677256
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.0280915867774169,
+      "avg_turnover": 0.0356165323321424
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.02729967149589548,
+      "avg_turnover": 0.011712425299773392
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "biweekly",
+      "loss": "task",
+      "tracking_error": 0.02819732014963162,
+      "avg_turnover": 0.018859621775527465
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.027833626131603804,
+      "avg_turnover": 0.003444922965530677
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.026465393207318704,
+      "avg_turnover": 0.0064585399335061215
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.027736626105176132,
+      "avg_turnover": 0.0021073110895629774
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.034638457466884445,
+      "avg_turnover": 0.003990867001534878
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.030841849424724944,
+      "avg_turnover": 0.0028393536860113117
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.04737361217966279,
+      "avg_turnover": 0.0021627081124247585
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.03783835153448499,
+      "avg_turnover": 0.005762900708462561
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.029647343328186648,
+      "avg_turnover": 0.004249405065322545
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "mse",
+      "tracking_error": 0.03085100330949401,
+      "avg_turnover": 0.0017786487446268156
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.026597035209093994,
+      "avg_turnover": 0.03357267450347363
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.026416510035663174,
+      "avg_turnover": 0.001299900394419195
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.02708734367266189,
+      "avg_turnover": 0.022239847543949153
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.030785575457475015,
+      "avg_turnover": 0.03030695688645767
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.030424834245830864,
+      "avg_turnover": 0.002596907980095841
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.03264238646678982,
+      "avg_turnover": 0.03714443812867929
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.028606660839243556,
+      "avg_turnover": 0.048476754097138135
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.027655646018177944,
+      "avg_turnover": 0.01267320673795662
+    },
+    {
+      "fold": 8,
+      "K": 20,
+      "rebal_freq": "monthly",
+      "loss": "task",
+      "tracking_error": 0.028454158384416686,
+      "avg_turnover": 0.023141615829475177
+    }
+  ]
+}

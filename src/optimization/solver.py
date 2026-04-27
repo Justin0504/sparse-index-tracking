@@ -90,6 +90,72 @@ def solve_tracking_qp_l1(
     return w_val
 
 
+def solve_tracking_qp_tc(
+    cov: np.ndarray,
+    w_idx: np.ndarray,
+    K: int,
+    w_prev: np.ndarray | None = None,
+    tc_cost: float = 0.0,
+    solver: str = "SCS",
+    verbose: bool = False,
+    selection: str = "market_cap",
+) -> np.ndarray:
+    """Solve sparse tracking QP with transaction cost penalty.
+
+    min_w  w^T Σ w - 2w^T σ_idx + c * ||w - w_prev||_1
+    s.t.   1^T w = 1, w >= 0, |S| = K
+
+    When tc_cost > 0 and w_prev is provided, the QP jointly optimizes
+    tracking error and trading cost. This is where DFL can outperform
+    grid search: the model learns to produce covariances that account
+    for the current portfolio state.
+    """
+    n = cov.shape[0]
+    K = min(K, n)
+
+    # Phase 1: Select stocks
+    if selection == "tracking_score":
+        scores = compute_tracking_scores_np(cov, w_idx)
+    else:
+        scores = w_idx.copy()
+    selected = np.argsort(scores)[-K:]
+    selected_sorted = np.sort(selected)
+
+    # Phase 2: Reduced QP with transaction costs
+    cov_SS = cov[np.ix_(selected_sorted, selected_sorted)]
+    b = cov[selected_sorted] @ w_idx
+
+    w_S = cp.Variable(K)
+    cov_sym = 0.5 * (cov_SS + cov_SS.T)
+    objective_expr = cp.quad_form(w_S, cov_sym, assume_PSD=True) - 2 * b @ w_S
+
+    if tc_cost > 0 and w_prev is not None:
+        w_prev_S = w_prev[selected_sorted]
+        # Renormalize prev weights to selected subset
+        prev_sum = w_prev_S.sum()
+        if prev_sum > 0.01:
+            w_prev_S = w_prev_S / prev_sum
+        else:
+            w_prev_S = np.ones(K, dtype=np.float64) / K
+        objective_expr = objective_expr + tc_cost * cp.norm1(w_S - w_prev_S)
+
+    objective = cp.Minimize(objective_expr)
+    constraints = [cp.sum(w_S) == 1, w_S >= 0]
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=solver, verbose=verbose)
+
+    if prob.status in ("optimal", "optimal_inaccurate"):
+        w_S_val = np.clip(w_S.value, 0, None).astype(np.float64)
+    else:
+        log.warning(f"TC-QP solver status: {prob.status} — falling back to equal weight")
+        w_S_val = np.ones(K, dtype=np.float64) / K
+
+    w_full = np.zeros(n, dtype=np.float64)
+    w_full[selected_sorted] = w_S_val
+    w_full = w_full / (w_full.sum() + 1e-10)
+    return w_full
+
+
 def solve_tracking_qp(
     cov: np.ndarray,
     w_idx: np.ndarray,

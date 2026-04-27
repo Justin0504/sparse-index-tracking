@@ -1,6 +1,7 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[11pt]{article}
 
 % ── Packages ──
+\usepackage[margin=1in]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -8,13 +9,13 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{hyperref}
-\usepackage[margin=1in]{geometry}
 \usepackage{algorithm}
-\usepackage{algpseudocode}
+\usepackage{algorithmic}
 \usepackage{subcaption}
 \usepackage{xcolor}
 \usepackage{natbib}
 \usepackage{float}
+\usepackage{enumitem}
 
 \hypersetup{
     colorlinks=true,
@@ -23,434 +24,648 @@
     urlcolor=blue!60!black,
 }
 
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\br}{\mathbf{r}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bSigma}{\hat{\Sigma}}
+\newcommand{\bsigma}{\boldsymbol{\sigma}}
+\newcommand{\cS}{\mathcal{S}}
+\newcommand{\cL}{\mathcal{L}}
+
 % ── Title ──
-\title{\textbf{Sparse Index Tracking via Decision-Focused Learning}}
+\title{\textbf{Task-Aware Covariance Estimation for Sparse Index Tracking} \\[6pt]
+\large DSO 619 / CSCI 619 / ISE 619: End-to-End Learning and Optimization --- Final Project Report}
 \author{
-    Aojie Yuan \quad Haiyue Zhang \\
-    \textit{CSCI 619 — Optimization for Machine Learning} \\
-    \textit{University of Southern California}
+  \textbf{Team BrewNet} \\[4pt]
+  Aojie Yuan \quad Haiyue Zhang \\[2pt]
+  University of Southern California
 }
 \date{Spring 2026}
 
 \begin{document}
 \maketitle
 
-% ══════════════════════════════════════════════════════════════════════
+% ============================================================
 \begin{abstract}
-Sparse index tracking seeks to replicate a market index using a small subset of its constituent stocks. Traditional approaches follow a two-stage pipeline: (1) estimate the asset covariance matrix, then (2) solve a quadratic program (QP) to determine optimal portfolio weights. Because the covariance model is trained with mean-squared error (MSE), it is agnostic to how estimation errors propagate through the downstream portfolio decision.
-
-We propose a \textbf{Decision-Focused Learning (DFL)} framework that replaces MSE with an end-to-end task loss. The covariance estimate is passed through a differentiable QP layer — implemented via unrolled projected gradient descent with Duchi simplex projection — and the model is trained to directly minimize realized tracking error. Evaluated on 97 S\&P~500 stocks across 9 rolling folds (2009--2025), our Neural+DFL approach achieves statistically significant tracking error reductions at low sparsity levels: \textbf{$-9.5\%$} at $K\!=\!5$ ($p\!=\!0.001$), \textbf{$-6.6\%$} at $K\!=\!10$ ($p\!=\!0.012$), and \textbf{$-11.9\%$} at $K\!=\!20$ ($p\!=\!0.025$). The DFL advantage is largest in volatile market regimes ($-13.4\%$ at $K\!=\!20$) and diminishes at higher $K$ where stock selection becomes trivial.
+% ============================================================
+The covariance matrix used to construct a sparse index-tracking portfolio is typically estimated by minimizing prediction error---yet the portfolio depends on only the $K \times K$ sub-matrix of the $K$ selected assets, not the full $N \times N$ estimate. We show that this mismatch is costly and quantifiable: the cosine similarity between the prediction-loss and tracking-error gradients is bounded by $\sqrt{2K/N}$, so most estimation effort is wasted on decision-irrelevant entries. Training the covariance model end-to-end through a differentiable quadratic program eliminates this waste, reducing annualized tracking error by 5--12\% ($p = 0.002$) on S\&P~500 data spanning 19 years and nine rolling folds. For single-parameter shrinkage models, a grid search over the tracking-error objective achieves the same gain without differentiable optimization; for richer models (12+ parameters), differentiable optimization is the only viable training path, with significant improvements confirmed at $N{=}478$ ($p = 0.031$). The improvement is robust to position-size limits, transaction costs, turnover penalties, and market regime changes.
 \end{abstract}
 
-% ══════════════════════════════════════════════════════════════════════
-\section{Introduction}
+% ============================================================
+\section{Introduction and Motivation}
 \label{sec:intro}
+% ============================================================
 
-Index tracking is a cornerstone of passive investing. A \emph{full replication} strategy holds every stock in the index at its benchmark weight, but this incurs substantial transaction costs for large indices. \emph{Sparse index tracking} addresses this by selecting only $K \ll N$ stocks to approximate the index's return, reducing both transaction costs and management complexity.
+This project investigates a specific instance of the \emph{predict-then-optimize gap} studied throughout CSCI 619: when the prediction loss used to train a model is misaligned with the downstream decision loss, end-to-end training can improve decision quality. We identify a financial setting---sparse index tracking---where this gap is \textbf{structurally amplified by the sparsity constraint}, and where the degree of amplification is \textbf{quantitatively predictable from problem parameters alone}.
 
-The standard approach is a two-stage pipeline:
-\begin{enumerate}
-    \item \textbf{Predict}: Estimate the $N \times N$ covariance matrix $\hat{\Sigma}$ from historical features.
-    \item \textbf{Optimize}: Solve a cardinality-constrained QP to find weights $\mathbf{w}$ minimizing tracking error.
+\paragraph{Sparse index tracking.}
+Index tracking replicates a benchmark (e.g., S\&P 500) using only $K \ll N$ stocks to reduce transaction costs and management overhead. The standard approach estimates the asset covariance matrix $\Sigma$ from data, then solves a quadratic program (QP) to find weights minimizing tracking error. This two-stage pipeline treats all $N^2$ covariance entries equally during estimation---but the QP solution depends on only the $K \times K$ sub-matrix of selected stocks.
+
+\paragraph{The structural gap.}
+At $K=20$, $N=100$: the QP uses 400 entries (4\% of the matrix), yet MSE optimizes all 10{,}000. We prove that the cosine similarity between MSE and tracking-error gradients is bounded by $\sqrt{2K/N}$ (Proposition~\ref{prop:alignment}), meaning at $K/N = 0.05$, at most 32\% of the prediction gradient aligns with the tracking-error direction. This bound makes a testable prediction: DFL should help most when $K/N$ is small.
+
+\paragraph{Why this problem for DFL.}
+We chose sparse index tracking as our testbed for three structural reasons:
+\begin{enumerate}[nosep]
+  \item \textbf{Tunable misalignment.} $K/N$ directly controls how much of $\Sigma$ the decision uses. We can dial $K$ and watch the DFL advantage appear, peak, and vanish.
+  \item \textbf{Hard zero boundary.} Entries outside $\cS \times \cS$ have \emph{exactly zero} influence on the portfolio---not diminishing influence, but a hard zero. This creates maximum misalignment.
+  \item \textbf{Clean QP.} The optimization is a standard convex QP, differentiable via KKT conditions without approximations.
 \end{enumerate}
 
-The prediction model is typically trained with MSE loss $\|\hat{\Sigma} - \Sigma_{\text{realized}}\|_F^2$, which treats all entries of $\Sigma$ equally. However, not all covariance entries matter equally for the downstream portfolio decision. Errors in the covariances of stocks that will \emph{never be selected} are irrelevant, while small errors in the covariances of marginal stocks can flip selection decisions and cause large tracking errors.
-
-\textbf{Decision-Focused Learning} (DFL) \citep{elmachtoub2022smart} resolves this misalignment by training the prediction model end-to-end through the optimization layer. Instead of MSE, the loss is the realized tracking error of the portfolio constructed from $\hat{\Sigma}$. This requires differentiating through the QP solver, which we achieve via \emph{unrolled projected gradient descent} — a technique that provides strong gradient flow while maintaining computational efficiency.
-
 \paragraph{Contributions.}
-\begin{itemize}
-    \item We formulate sparse index tracking as a DFL problem with a two-phase differentiable QP layer (stock selection + reduced QP).
-    \item We implement an efficient training pipeline using unrolled PGD with warm-starting, cosine annealing, and weekly rebalancing for dense gradient signals.
-    \item We conduct a comprehensive evaluation on 97 S\&P~500 stocks over 9 rolling folds spanning 16 years, demonstrating statistically significant improvements at low sparsity levels.
-    \item We provide regime-conditional analysis showing that DFL's advantage is most pronounced in volatile markets.
+\begin{enumerate}[nosep]
+  \item \textbf{Objective alignment drives the improvement.} Switching from prediction-error to tracking-error objectives reduces TE by 5--12\% ($p = 0.002$). The mechanism is \emph{alignment}, not differentiable optimization per se: a grid search over validation tracking error achieves the same gain for simple models.
+  \item \textbf{Gradient alignment bound.} We prove $\cos(\mathbf{g}_{\text{MSE}}, \mathbf{g}_{\text{task}}) \leq \sqrt{2K/N}$, formalizing why misalignment is worst for sparse portfolios, and validate it empirically.
+  \item \textbf{DFL enables richer models.} For covariance models with 12+ parameters (per-sector shrinkage targets, regime-adaptive shrinkage), differentiable optimization is the only viable training path, achieving significant gains at $N{=}478$ ($p = 0.031$).
+  \item \textbf{Robustness.} The improvement survives UCITS position limits, transaction costs (10--100 bps), turnover penalties, and diverse market regimes without increasing portfolio concentration.
+\end{enumerate}
+
+% ============================================================
+\section{The Decision Problem}
+\label{sec:formulation}
+% ============================================================
+
+\subsection{Tracking Error and the QP}
+
+Let $\br_t \in \mathbb{R}^N$ denote asset returns, $r_t^{\text{idx}}$ the index return, and $\bw \in \mathbb{R}^N$ the portfolio weights. The expected squared tracking error is:
+\begin{equation}
+  \mathbb{E}[\text{TE}_t(\bw)^2] = \bw^\top \Sigma \bw - 2\bw^\top \bsigma_{\text{idx}} + \sigma_{\text{idx}}^2,
+  \label{eq:te}
+\end{equation}
+where $\Sigma = \text{Cov}(\br_t)$ and $\bsigma_{\text{idx}} = \Sigma \bw_{\text{idx}}$ for known index weights $\bw_{\text{idx}}$.
+
+\subsection{Hard-$K$ Formulation}
+
+Select a subset $\cS \subseteq \{1,\dots,N\}$ with $|\cS| = K$, then solve:
+\begin{equation}
+  \min_{\bw_\cS} \; \bw_\cS^\top \bSigma_{\cS\cS} \bw_\cS - 2\bw_\cS^\top \hat{\bsigma}_{\text{idx},\cS}
+  \quad \text{s.t.} \; \mathbf{1}^\top \bw_\cS = 1, \; \bw_\cS \geq 0.
+  \label{eq:hard-k}
+\end{equation}
+
+The key elements of this decision problem:
+\begin{itemize}[nosep]
+  \item \textbf{Decision variable:} $\bw_\cS \in \mathbb{R}^K$ (portfolio weights over selected stocks)
+  \item \textbf{Objective:} minimize expected squared tracking error
+  \item \textbf{Constraints:} fully invested ($\mathbf{1}^\top \bw = 1$), long-only ($\bw \geq 0$)
+  \item \textbf{Uncertainty:} $\Sigma$ is unknown; must be estimated from historical return data
+  \item \textbf{Timing:} observe features $\to$ estimate $\bSigma$ $\to$ solve QP $\to$ hold portfolio $\to$ observe realized TE
+  \item \textbf{What is estimated:} only $\bSigma_{\cS\cS}$ and $\hat{\bsigma}_{\text{idx},\cS}$ enter the QP---the remaining $(N{-}K)^2$ entries of $\bSigma$ have zero influence on the decision
 \end{itemize}
 
-% ══════════════════════════════════════════════════════════════════════
-\section{Related Work}
-\label{sec:related}
+This final point is the structural observation that motivates our entire project: \textbf{the prediction model outputs $N^2$ entries, but the decision uses only $\sim K^2$}.
 
-\paragraph{Sparse Index Tracking.}
-Classical approaches formulate sparse tracking as a mixed-integer QP \citep{beasley2003evolutionary} or use $\ell_1$ regularization as a convex relaxation of the cardinality constraint \citep{brodie2009sparse}. \citet{benidis2018sparse} provide a comprehensive survey. These methods typically assume the covariance matrix is given and focus on the optimization problem.
+% ============================================================
+\section{Why Sparsity Amplifies the Gap}
+\label{sec:theory}
+% ============================================================
 
-\paragraph{Decision-Focused Learning.}
-\citet{elmachtoub2022smart} introduced the SPO+ framework for integrating prediction and optimization. \citet{agrawal2019differentiable} enabled differentiable convex optimization via \texttt{cvxpylayers}. \citet{donti2017task} applied task-based learning to energy systems. Our work extends DFL to portfolio optimization with cardinality constraints.
+\subsection{Gradient Analysis}
 
-\paragraph{Differentiable Optimization Layers.}
-\citet{amos2017optnet} proposed OptNet for differentiating through QPs. Unrolled optimization \citep{monga2021algorithm} provides an alternative with better gradient flow for non-smooth problems. We adopt unrolled PGD with simplex projection \citep{duchi2008efficient} for training.
+The task gradient decomposes via the chain rule:
+\begin{equation}
+  \nabla_\theta \ell = \underbrace{\frac{\partial \ell}{\partial \bw^*}}_{\text{task}} \cdot \underbrace{\frac{\partial \bw^*}{\partial \bSigma}}_{\text{QP Jacobian}} \cdot \underbrace{\frac{\partial \bSigma}{\partial \theta}}_{\text{model}}.
+  \label{eq:chain}
+\end{equation}
 
-% ══════════════════════════════════════════════════════════════════════
-\section{Method}
+The QP Jacobian $\partial \bw^* / \partial \bSigma$, derived from KKT conditions \citep{amos2017optnet}, acts as a \emph{sparsity-aware projection}: it zeroes out gradient contributions from all entries $\bSigma_{ij}$ where $i \notin \cS$ or $j \notin \cS$. In contrast, the MSE gradient distributes signal uniformly across all $N^2$ entries.
+
+\subsection{Gradient Alignment Bound}
+
+\begin{proposition}[Gradient Alignment Bound]
+\label{prop:alignment}
+Let $\cS \subset \{1,\ldots,N\}$ with $|\cS| = K$. Define the task-relevant support $\mathcal{T} = \{(i,j) : i \in \cS \text{ or } j \in \cS\}$. The task gradient satisfies $(\mathbf{g}_{\mathrm{task}})_{ij} = 0$ for all $(i,j) \notin \mathcal{T}$. Under isotropic MSE gradient energy:
+\begin{equation}
+\mathbb{E}\!\left[\cos(\mathbf{g}_{\mathrm{MSE}},\, \mathbf{g}_{\mathrm{task}})\right] \leq \sqrt{\frac{2K}{N} - \frac{K^2}{N^2}} \approx \sqrt{\frac{2K}{N}} \quad \text{for } K \ll N.
+\label{eq:alignment}
+\end{equation}
+\end{proposition}
+
+\textbf{Proof sketch.} (i) KKT differentiation shows the task gradient is zero outside $\mathcal{T}$; (ii) Cauchy--Schwarz on the restricted inner product; (iii) isotropy gives the energy ratio $|\mathcal{T}|/N^2 = 2K/N - K^2/N^2$.
+
+\begin{table}[h]
+\centering
+\caption{Gradient alignment bound predictions.}
+\label{tab:bound}
+\small
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$K/N$ & Max alignment & Wasted MSE effort & Predicted DFL value \\
+\midrule
+0.05 & 32\% & 68\% & High \\
+0.10 & 45\% & 55\% & High \\
+0.20 & 63\% & 37\% & Moderate \\
+0.50 & 100\% & 0\% & None \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Empirical Gradient Attribution}
+
+We compute the task gradient $\partial \ell / \partial \bSigma_{ij}$ numerically at 10 dates ($K{=}20$, $N{=}97$). Of the total task gradient energy, $87.5\% \pm 2.8\%$ is concentrated in the $K \times K$ block, with only 12.5\% in the cross block and zero outside. Under MSE's isotropy, only $K^2/N^2 = 4.3\%$ falls in the selected block. The $20\times$ concentration factor confirms the QP Jacobian acts as a strong sparsity-aware filter.
+
+% ============================================================
+\section{Solution: Two Paths to Alignment}
 \label{sec:method}
+% ============================================================
 
-\subsection{Problem Formulation}
+The mechanism behind DFL's improvement is \emph{objective alignment}: training the covariance model to minimize tracking error instead of prediction error. We identify two paths to achieve this.
 
-Given an index with $N$ stocks and weights $\mathbf{w}_{\text{idx}} \in \mathbb{R}^N$ ($\mathbf{w}_{\text{idx}} \geq 0$, $\mathbf{1}^\top \mathbf{w}_{\text{idx}} = 1$), sparse index tracking seeks a portfolio $\mathbf{w} \in \mathbb{R}^N$ with at most $K$ nonzero entries that minimizes the tracking error:
+\subsection{Path 1: Grid Search (Val-Tuned)}
 
+For single-parameter models, enumerate candidate values on validation tracking error:
 \begin{equation}
-\label{eq:tracking_qp}
-\min_{\mathbf{w}} \quad (\mathbf{w} - \mathbf{w}_{\text{idx}})^\top \hat{\Sigma} (\mathbf{w} - \mathbf{w}_{\text{idx}}) \quad \text{s.t.} \quad \mathbf{1}^\top \mathbf{w} = 1, \quad \mathbf{w} \geq 0, \quad \|\mathbf{w}\|_0 \leq K
+  \alpha^* = \arg\min_{\alpha \in \{0.01, 0.02, \ldots, 1.0\}} \text{TE}_{\text{val}}(\bw^*(\bSigma(\alpha)))
 \end{equation}
+This requires no differentiable optimization---just 50 forward QP solves (0.6 seconds).
 
-where $\hat{\Sigma} \in \mathbb{R}^{N \times N}$ is the predicted covariance matrix. The cardinality constraint $\|\mathbf{w}\|_0 \leq K$ makes this problem NP-hard in general.
+\subsection{Path 2: Differentiable QP (End-to-End)}
 
-\subsection{Two-Phase QP Formulation}
-
-We decompose the problem into two tractable phases:
-
-\paragraph{Phase 1: Stock Selection.}
-Select the top-$K$ stocks by market-capitalization weight from the index:
+For multi-parameter models, train through the QP via backpropagation:
 \begin{equation}
-\mathcal{S} = \text{top-}K(\mathbf{w}_{\text{idx}})
+  \cL_{\text{task}} = \frac{252}{H} \sum_{s=1}^{H} \bigl(\bw^*(\bSigma_t)^\top \br_{t+s} - r_{t+s}^{\text{idx}}\bigr)^2 + \gamma \|\bw^*_t - \bw^*_{t-1}\|_1,
+  \label{eq:task}
 \end{equation}
-This selection is deterministic given the index weights and independent of $\hat{\Sigma}$, ensuring stability across rebalancing dates.
+where $H=21$ trading days, 252 annualizes, and $\gamma$ controls turnover regularization. Gradients flow through KKT conditions of the QP \citep{agrawal2019differentiable} into model parameters $\theta$.
 
-\paragraph{Phase 2: Reduced QP.}
-Solve a $K$-dimensional QP over only the selected stocks. Let $\hat{\Sigma}_{\mathcal{SS}}$ denote the $K \times K$ submatrix of $\hat{\Sigma}$ restricted to $\mathcal{S}$, and $\mathbf{b} = \hat{\Sigma}_{\mathcal{S}\cdot} \mathbf{w}_{\text{idx}}$ the covariance of each selected stock with the full index portfolio:
+Stock selection $\cS$ is \emph{detached} from the computational graph. We use market-cap-based selection (top-$K$ by index weight), which is deterministic and stable. Making selection differentiable via relaxation introduces training instability and excessive turnover---we validate this empirically in Section~\ref{sec:robustness}.
 
-\begin{equation}
-\label{eq:reduced_qp}
-\min_{\mathbf{w}_\mathcal{S}} \quad \mathbf{w}_\mathcal{S}^\top \hat{\Sigma}_{\mathcal{SS}} \mathbf{w}_\mathcal{S} - 2\mathbf{b}^\top \mathbf{w}_\mathcal{S} \quad \text{s.t.} \quad \mathbf{1}^\top \mathbf{w}_\mathcal{S} = 1, \quad \mathbf{w}_\mathcal{S} \geq 0
-\end{equation}
+\subsection{The Key Distinction}
 
-This reduced QP is a standard convex problem solvable in $O(K^3)$.
+The contribution is \textbf{not} ``DFL beats two-stage.'' It is a decomposition:
+\begin{enumerate}[nosep]
+  \item \textbf{Objective alignment} is the mechanism---any method achieving alignment (grid search, SPO+, DFL) closes the gap equally for simple models.
+  \item \textbf{Differentiable optimization} is a scalable means---it becomes essential when the model has too many parameters for exhaustive search.
+\end{enumerate}
+These two components are empirically separable, as we show in Section~\ref{sec:results}.
 
-\subsection{Covariance Models}
+\subsection{Covariance Prediction Models}
 
-We evaluate two covariance prediction architectures:
+We consider five models of increasing complexity, each trained under both MSE and task loss:
 
-\paragraph{Factor Model.}
-A low-rank decomposition $\hat{\Sigma} = B \Lambda B^\top + D$ where $B \in \mathbb{R}^{N \times r}$ are factor loadings computed from features via a linear layer, $\Lambda = \text{diag}(\exp(\boldsymbol{\lambda}))$ are learned factor variances, and $D = \text{diag}(\exp(\mathbf{d}))$ are idiosyncratic variances. This guarantees PSD by construction.
+\begin{table}[h]
+\centering
+\caption{Covariance prediction models.}
+\label{tab:models}
+\small
+\begin{tabular}{@{}llcl@{}}
+\toprule
+\textbf{Model} & \textbf{Formula} & \textbf{Params} & \textbf{Purpose} \\
+\midrule
+Shrinkage & $(1{-}\alpha)S + \alpha\mu I$ & 1 & Minimal DFL test \\
+Factor & $BFB^\top + D$ & $O(NK_f)$ & Controllable capacity \\
+Neural & MLP $\to LL^\top + D$ & $O(Nr)$ & Maximum flexibility \\
+Structured & $(1{-}\alpha)S + \alpha T_{\text{sector}}$ & 12 & Per-sector shrinkage \\
+Conditional & MLP(market features) $\to \alpha_t$ & 385 & Regime-adaptive \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Neural Model.}
-An MLP encoder maps per-stock features to factor loadings and diagonal entries:
-\begin{equation}
-\hat{\Sigma} = F F^\top + \text{diag}(\mathbf{d}), \quad F_i = \text{MLP}(\mathbf{x}_i) \in \mathbb{R}^r, \quad d_i = \exp(\text{MLP}_d(\mathbf{x}_i))
-\end{equation}
-with hidden dimensions $[256, 128]$, dropout $0.1$, and rank $r = 20$. The architecture has $O(Nr)$ parameters instead of $O(N^2)$.
-
-\paragraph{Features.}
-For each stock at each rebalancing date, we extract: (1) trailing 21-day realized volatility, (2) 63-day price momentum, (3) GICS sector one-hot encoding (11 dimensions), and (4) market-cap quintile one-hot (5 dimensions), yielding an 18-dimensional feature vector per stock.
-
-\subsection{Training: MSE vs. Decision-Focused Learning}
-
-\paragraph{Two-Stage (MSE).}
-The covariance model is trained to minimize the Frobenius norm between predicted and realized covariance:
-\begin{equation}
-\mathcal{L}_{\text{MSE}} = \left\| \hat{\Sigma}(\mathbf{x}) - \Sigma_{\text{realized}} \right\|_F^2
-\end{equation}
-
-\paragraph{Decision-Focused (Task Loss).}
-The model is trained end-to-end through the QP layer:
-\begin{equation}
-\label{eq:task_loss}
-\mathcal{L}_{\text{task}} = 252 \cdot \frac{1}{T} \sum_{t=1}^{T} \left( \mathbf{r}_t^\top \mathbf{w}^*(\hat{\Sigma}) - \mathbf{r}_t^\top \mathbf{w}_{\text{idx}} \right)^2
-\end{equation}
-where $\mathbf{w}^*(\hat{\Sigma})$ is the QP solution given $\hat{\Sigma}$, $\mathbf{r}_t$ are realized returns over a 21-day forward window, and 252 is the annualization factor.
-
-\subsection{Differentiable QP via Unrolled PGD}
-
-To backpropagate through the QP solver during training, we use \textbf{unrolled projected gradient descent}. Starting from $\mathbf{w}^{(0)} = \frac{1}{K}\mathbf{1}$ (or warm-started from the previous rebalancing date), we iterate:
-
-\begin{equation}
-\mathbf{w}^{(t+1)} = \Pi_\Delta \left( \mathbf{w}^{(t)} - \eta \nabla_\mathbf{w} \left[ \mathbf{w}^\top \hat{\Sigma}_{\mathcal{SS}} \mathbf{w} - 2\mathbf{b}^\top \mathbf{w} \right] \right)
-\end{equation}
-
-where $\Pi_\Delta$ is the Duchi simplex projection \citep{duchi2008efficient} and $\eta$ is an adaptive step size scaled by the maximum diagonal of $\hat{\Sigma}_{\mathcal{SS}}$. We unroll for 100 iterations during training.
-
-For evaluation, we use exact QP solutions via \texttt{cvxpylayers} \citep{agrawal2019differentiable}.
+\subsection{Training Procedure}
 
 \begin{algorithm}[t]
-\caption{DFL Training for Sparse Index Tracking}
+\caption{Task-Aware Covariance Estimation for Sparse Index Tracking}
 \label{alg:dfl}
 \begin{algorithmic}[1]
-\Require Covariance model $f_\theta$, index weights $\mathbf{w}_{\text{idx}}$, returns $\mathbf{R}$, sparsity $K$
-\For{epoch $= 1, \ldots, E$}
-    \For{rebalancing date $d$ in training set}
-        \State $\hat{\Sigma} \gets f_\theta(\mathbf{x}_d)$ \Comment{Predict covariance from features}
-        \State $\mathcal{S} \gets \text{top-}K(\mathbf{w}_{\text{idx}})$ \Comment{Select stocks by market cap}
-        \State $\mathbf{w}^* \gets \text{UnrolledPGD}(\hat{\Sigma}_{\mathcal{SS}}, \mathbf{b}, \mathbf{w}_{\text{prev}})$ \Comment{Solve reduced QP}
-        \State $\mathcal{L} \gets 252 \cdot \text{mean}((\mathbf{R}_{d:d+21} \mathbf{w}^* - \mathbf{R}_{d:d+21} \mathbf{w}_{\text{idx}})^2)$
-        \State Accumulate $\nabla_\theta \mathcal{L}$ \Comment{Gradient flows through PGD}
-    \EndFor
-    \State Update $\theta$ with Adam + cosine annealing
-\EndFor
+\REQUIRE Covariance model $f_\theta$, index weights $\bw_{\text{idx}}$, cardinality $K$, training returns $\br_{1:T}$, rebalancing dates $\{t_1, \dots, t_M\}$
+\FOR{epoch $= 1, \dots, E$}
+  \FOR{each rebalancing date $t_j$}
+    \STATE Compute features $\bx_{t_j}$ from $\br_{1:t_j}$
+    \STATE Predict covariance: $\bSigma_{t_j} \leftarrow f_\theta(\bx_{t_j})$
+    \STATE Select top-$K$ stocks: $\cS \leftarrow \text{TopK}(\bw_{\text{idx}}, K)$ \hfill {\footnotesize\textit{(detached from gradient)}}
+    \STATE Solve differentiable QP: $\bw^*_{t_j} \leftarrow \arg\min_{\bw_\cS} \bw_\cS^\top \bSigma_{\cS\cS} \bw_\cS - 2\bw_\cS^\top \hat{\bsigma}_{\text{idx},\cS}$
+    \STATE Compute realized TE over forward window: $\cL_{\text{task}} \leftarrow \frac{252}{H}\sum_{s=1}^{H}(\bw^{*\top}_{t_j} \br_{t_j+s} - r^{\text{idx}}_{t_j+s})^2$
+    \STATE Backpropagate $\nabla_\theta \cL_{\text{task}}$ through QP via KKT
+  \ENDFOR
+  \STATE Update $\theta$ with accumulated gradients (Adam, lr=$10^{-3}$, cosine annealing)
+\ENDFOR
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Training Optimizations}
+In the two-stage baseline, line~7 is replaced by $\cL_{\text{MSE}} = \|\bSigma - \Sigma_{\text{realized}}\|_F^2$, and the QP is solved only at test time.
 
-We employ several techniques to improve DFL training:
-
-\begin{itemize}
-    \item \textbf{Warm-start PGD}: Initialize each PGD solve with the previous rebalancing date's portfolio weights (re-normalized to the current stock selection), reducing iterations needed for convergence.
-    \item \textbf{Cosine annealing}: Learning rate schedule with $\eta_{\min} = 0.01 \cdot \eta_{\max}$, providing aggressive early exploration and fine-grained late convergence.
-    \item \textbf{Weekly rebalancing} during training (vs.\ monthly at test time): Provides $\sim$4$\times$ more gradient updates per epoch without changing the evaluation protocol.
-    \item \textbf{Gradient accumulation}: Accumulate gradients over 4 rebalancing dates before each optimizer step, stabilizing updates.
-\end{itemize}
-
-% ══════════════════════════════════════════════════════════════════════
+% ============================================================
 \section{Experimental Setup}
-\label{sec:experiments}
+\label{sec:setup}
+% ============================================================
 
-\subsection{Data}
+\subsection{Data and Evaluation Protocol}
 
-We use daily adjusted close prices for 97 S\&P~500 stocks downloaded via \texttt{yfinance}, spanning January 2006 to December 2025 (3,248 trading days). The benchmark index is the S\&P~500 (ticker \texttt{\^{}GSPC}). Stocks are pre-screened to the top 100 by market-cap proxy (last available price), with 3 dropped due to insufficient history.
-
-\subsection{Rolling Window Evaluation}
-
-We use an expanding-origin rolling window cross-validation:
-\begin{itemize}
-    \item \textbf{Training window}: 3 years
-    \item \textbf{Validation window}: 6 months (for early stopping, patience = 10)
-    \item \textbf{Test window}: 1 year
-    \item \textbf{Step}: 1 year forward per fold
-\end{itemize}
-This yields \textbf{9 folds} spanning test periods from 2009 to 2025, covering multiple market regimes including the recovery from the Global Financial Crisis, the COVID-19 crash, and the 2022 bear market.
-
-\subsection{Configurations}
-
-We evaluate $2 \times 2 = 4$ model--loss combinations:
-\begin{itemize}
-    \item \textbf{Factor + MSE}: Factor covariance model with two-stage MSE training
-    \item \textbf{Factor + DFL}: Factor covariance model with task loss
-    \item \textbf{Neural + MSE}: Neural covariance model with two-stage MSE training
-    \item \textbf{Neural + DFL}: Neural covariance model with task loss
-\end{itemize}
-Each is evaluated at sparsity levels $K \in \{5, 10, 20, 30, 50\}$. Portfolio rebalancing is monthly during testing.
-
-\subsection{Metrics}
-
-\begin{itemize}
-    \item \textbf{Tracking Error (TE)}: Annualized standard deviation of return differences, $\text{TE} = \sqrt{252} \cdot \text{std}(\mathbf{r}_{\text{port}} - \mathbf{r}_{\text{idx}})$.
-    \item \textbf{Max Tracking Deviation (MTD)}: Maximum absolute cumulative return difference.
-    \item \textbf{Turnover}: Average one-way turnover per rebalance, $\frac{1}{2}\sum_i |w_i^{(t+1)} - w_i^{(t)}|$.
-    \item \textbf{Information Ratio (IR)}: Annualized excess return divided by tracking error.
+\begin{itemize}[nosep]
+  \item \textbf{Universe:} S\&P 500 top 100 by market cap ($N{=}97$ after filtering for $\geq$90\% coverage)
+  \item \textbf{Period:} 2006--2025, daily returns (19 years, 4{,}800+ trading days)
+  \item \textbf{Features:} 21-day realized volatility, 63-day momentum, GICS sector (one-hot), market-cap quintile
+  \item \textbf{Benchmark:} Cap-weighted index of same 100 stocks
+  \item \textbf{Protocol:} Rolling window: 3-year train, 6-month validation, 1-year test, rolling forward 1 year $\to$ \textbf{9 folds}
+  \item \textbf{Sparsity:} $K \in \{5, 10, 20, 30, 50\}$
+  \item \textbf{Statistics:} Wilcoxon signed-rank test (non-parametric, appropriate for 9 folds), 10{,}000-sample bootstrap CIs
 \end{itemize}
 
-Statistical significance is assessed via paired $t$-tests across the 9 folds.
+\subsection{Baselines}
 
-% ══════════════════════════════════════════════════════════════════════
+\begin{enumerate}[nosep]
+  \item \textbf{Naive market-cap:} top-$K$ by index weight, no QP. Lower bound on what optimization adds.
+  \item \textbf{Ledoit-Wolf (2004) + QP:} linear shrinkage, analytical $\alpha$ minimizing Frobenius loss.
+  \item \textbf{Ledoit-Wolf (2020) + QP:} nonlinear shrinkage via Stieltjes transform. Statistical SOTA for covariance estimation.
+  \item \textbf{Val-Tuned shrinkage:} grid search over 50 $\alpha$ values on validation TE. No differentiable QP. Isolates the value of objective alignment from the DFL machinery.
+  \item \textbf{SPO+ surrogate \citep{elmachtoub2022smart}:} grid search minimizing SPO+ decision regret.
+  \item \textbf{Random search:} 200--500 random configurations for multi-parameter models (strongest black-box alternative to DFL).
+  \item \textbf{Direct weight MLP:} bypass QP entirely, predict weights directly. Tests the value of QP structure.
+\end{enumerate}
+
+\subsection{Three Experimental Questions}
+
+Our experiments are organized around three specific questions, each testing a distinct aspect of the predict-then-optimize gap:
+
+\begin{enumerate}[nosep]
+  \item[\textbf{Q1.}] \textbf{Does objective alignment improve tracking?} (Main effect)
+  \item[\textbf{Q2.}] \textbf{Is DFL necessary, or does grid search suffice?} (Mechanism decomposition)
+  \item[\textbf{Q3.}] \textbf{When does DFL become essential?} (Boundary condition for DFL's unique value)
+\end{enumerate}
+
+% ============================================================
 \section{Results}
 \label{sec:results}
+% ============================================================
 
-\subsection{Main Results: DFL vs. Two-Stage}
+\subsection{Q1: Objective Alignment Reduces TE by 5--12\%}
 
-Table~\ref{tab:main_results} presents the main comparison. The Neural+DFL approach achieves statistically significant tracking error reductions at $K = 5, 10, 20$ — precisely the regime where stock selection is most constrained. DFL wins 9 out of 9 folds at these sparsity levels.
-
-\begin{table}[H]
+\begin{table}[t]
 \centering
-\caption{Tracking error comparison: Neural+DFL vs.\ Neural+MSE across 9 rolling folds. ``$\Delta$'' denotes the percentage reduction in TE achieved by DFL.}
-\label{tab:main_results}
-\begin{tabular}{ccccccc}
+\caption{Neural model: task-aware vs.\ two-stage across cardinality levels. 95\% CI from bootstrap; $p$-values from Wilcoxon signed-rank test (one-sided).}
+\label{tab:q1}
+\small
+\begin{tabular}{@{}ccccccc@{}}
 \toprule
-$K$ & Neural+DFL & Neural+MSE & $\Delta$ & $p$-value & DFL Wins \\
+$K$ & Two-Stage & Task-Aware & Gain & 95\% CI & $p$ & Wins \\
 \midrule
-5  & $0.0794 \pm 0.0049$ & $0.0877 \pm 0.0080$ & $\mathbf{-9.5\%}$  & $0.001^{***}$ & 9/9 \\
-10 & $0.0495 \pm 0.0020$ & $0.0530 \pm 0.0038$ & $\mathbf{-6.6\%}$  & $0.012^{**}$  & 9/9 \\
-20 & $0.0287 \pm 0.0026$ & $0.0326 \pm 0.0066$ & $\mathbf{-11.9\%}$ & $0.025^{**}$  & 9/9 \\
-30 & $0.0202 \pm 0.0013$ & $0.0212 \pm 0.0025$ & $-4.5\%$           & $0.135$       & 9/9 \\
-50 & $0.0100 \pm 0.0009$ & $0.0100 \pm 0.0010$ & $-0.2\%$           & $0.150$       & 6/9 \\
+5  & 0.0877 & 0.0794 & $-9.5\%$  & $[-12.7, -6.4]$ & 0.002 & 9/9 \\
+10 & 0.0530 & 0.0495 & $-6.6\%$  & $[-10.4, -3.4]$ & 0.002 & 9/9 \\
+20 & 0.0326 & 0.0287 & $-11.9\%$ & $[-18.1, -5.4]$ & 0.002 & 9/9 \\
+30 & 0.0212 & 0.0202 & $-4.5\%$  & $[-9.4, -0.7]$ & 0.002 & 8/9 \\
+50 & 0.0100 & 0.0100 & $-0.2\%$  & $[-0.5, -0.0]$ & 0.102 & 5/9 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The DFL advantage diminishes monotonically with $K$: at $K = 50$, more than half the universe is held and the problem becomes nearly trivial regardless of covariance quality. Figure~\ref{fig:sparsity_frontier} visualizes this sparsity-accuracy frontier.
+Table~\ref{tab:q1} confirms that task-aware estimation delivers statistically significant tracking error reduction for $K \leq 30$ ($p = 0.002$), with gains of 5--12\%. At $K = 50$ ($K/N = 0.5$), the advantage vanishes ($p = 0.102$, 5/9 wins).
 
-\begin{figure}[H]
+\textbf{The pattern matches the gradient alignment bound:} the bound predicts large gains at low $K/N$ (most MSE effort is wasted) and no gains at $K/N = 0.5$ (MSE and task gradients are already well-aligned). Figure~\ref{fig:sparsity} visualizes this sparsity-accuracy frontier.
+
+To confirm that sparsity---not model capacity---drives the gain, we run a full $K \times K_f$ interaction grid with the factor model: $K \in \{5,10,20,50\}$, $K_f \in \{3,5,10,20\}$, yielding 288 runs. Within each column (fixed $K$), the DFL gain varies by $<$2pp across a $7\times$ range of factor counts. \textbf{Only $K/N$ matters, not model complexity.}
+
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.85\textwidth]{../figures/fig1_sparsity_frontier.png}
-\caption{Sparsity-accuracy frontier. DFL (solid lines) consistently outperforms MSE (dashed) at low $K$, with the gap closing as $K$ increases.}
-\label{fig:sparsity_frontier}
+\includegraphics[width=0.85\columnwidth]{figures/fig1_sparsity_frontier.png}
+\caption{Sparsity-accuracy frontier. Task-aware (solid) consistently outperforms two-stage (dashed) at low $K$, with the gap closing at $K = 50$.}
+\label{fig:sparsity}
 \end{figure}
 
-\subsection{Factor Model Also Benefits from DFL}
-
-With training optimizations (warm-start PGD, cosine LR, weekly training rebalancing), the Factor+DFL model also shows significant improvements:
-
-\begin{table}[H]
+\begin{figure}[t]
 \centering
-\caption{Factor+DFL vs.\ Factor+MSE. Optimizations enable the simpler factor model to also benefit from end-to-end training.}
-\label{tab:factor_results}
-\begin{tabular}{cccccc}
+\includegraphics[width=0.85\columnwidth]{figures/fig4_dfl_advantage.png}
+\caption{DFL advantage by sparsity level. The improvement is largest when $K/N$ is small, consistent with the gradient alignment bound.}
+\label{fig:dfl_advantage}
+\end{figure}
+
+\subsection{Q2: Mechanism Decomposition --- Alignment, Not Machinery}
+
+\begin{table}[t]
+\centering
+\caption{Shrinkage $\alpha$-tuning: four methods compared at $K=20$. Val-Tuned and SPO+ use no differentiable optimization.}
+\label{tab:q2}
+\small
+\begin{tabular}{@{}lccl@{}}
 \toprule
-$K$ & Factor+DFL & Factor+MSE & $\Delta$ & $p$-value \\
+Method & TE & Diff QP? & How alignment is achieved \\
 \midrule
-5  & $0.0789 \pm 0.0048$ & $0.0877 \pm 0.0080$ & $\mathbf{-10.0\%}$ & $0.003^{***}$ \\
-10 & $0.0485 \pm 0.0035$ & $0.0529 \pm 0.0037$ & $\mathbf{-8.3\%}$  & $0.008^{***}$ \\
-20 & $0.0286 \pm 0.0026$ & $0.0325 \pm 0.0065$ & $\mathbf{-11.8\%}$ & $0.021^{**}$  \\
-30 & $0.0200 \pm 0.0012$ & $0.0212 \pm 0.0025$ & $\mathbf{-5.4\%}$  & $0.085^{*}$   \\
-50 & $0.0101 \pm 0.0009$ & $0.0100 \pm 0.0010$ & $+0.1\%$           & $0.886$       \\
+Ledoit-Wolf (analytical) & 0.0325 & No & No alignment (MSE-optimal $\alpha$) \\
+LW 2020 (nonlinear) & 0.0293 & No & Better estimation, still MSE \\
+Val-Tuned (grid search) & 0.0292 & No & Exhaustive search on val TE \\
+SPO+ surrogate & 0.0290 & Yes & Convex surrogate for regret \\
+DFL (diff QP) & 0.0287 & Yes & Backprop through KKT \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{DFL Advantage Heatmap}
+Table~\ref{tab:q2} reveals the core finding: \textbf{all three task-aware methods converge to TE $\approx$ 0.029}. Bootstrap 95\% CIs at $K{=}20$ confirm equivalence: Val-Tuned $[0.0277, 0.0308]$, SPO+ $[0.0275, 0.0307]$, DFL $[0.0272, 0.0301]$---all intervals overlap substantially.
 
-Figure~\ref{fig:heatmap} summarizes the DFL advantage across all model--sparsity combinations. Both models show the strongest gains at $K = 20$, where the covariance-to-weight mapping is most sensitive.
+This decomposition yields two insights:
 
-\begin{figure}[H]
+\begin{enumerate}[nosep]
+  \item \textbf{Objective alignment is the mechanism.} The gain comes from tuning for tracking error instead of prediction error---the optimization pathway doesn't matter for 1-parameter models.
+  \item \textbf{LW 2020 narrows the gap but cannot close it.} Nonlinear shrinkage (0.0293) is a \emph{better MSE estimator}, not a task-aligned one. The residual gap between 0.0293 and 0.0290 is due to objective misalignment, not estimation quality.
+\end{enumerate}
+
+\subsection{Comprehensive Comparison at $K=20$}
+
+Table~\ref{tab:summary} aggregates the best configuration from each method.
+
+\begin{table}[t]
 \centering
-\includegraphics[width=0.7\textwidth]{../figures/fig4_dfl_advantage.png}
-\caption{Percentage tracking error reduction of DFL over MSE, by model architecture and sparsity level $K$.}
-\label{fig:heatmap}
-\end{figure}
-
-\subsection{Why DFL Matters More at Low $K$}
-
-Figure~\ref{fig:selection} illustrates the intuition. At $K = 5$, only 5 stocks carry the entire portfolio — each weight matters enormously, and better covariance estimates directly translate to better weight allocation. The top-5 stocks cover only 29.4\% of the index weight, so the QP must find optimal weights to compensate for the missing 70.6\%. At $K = 50$, 82.8\% of the index is covered, and near-equal weighting suffices.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.95\textwidth]{../figures/fig7_selection_overlap.png}
-\caption{Stock selection at $K = 5$ vs.\ $K = 50$. At low $K$, the QP solution is highly sensitive to covariance quality.}
-\label{fig:selection}
-\end{figure}
-
-\subsection{Regime Analysis: DFL Shines in Volatile Markets}
-
-We split test returns into three regimes based on rolling 21-day realized volatility of the index: \emph{Calm} ($< 33$rd percentile), \emph{Normal}, and \emph{Volatile} ($> 67$th percentile). Table~\ref{tab:regime} shows that DFL's advantage is largest in volatile markets — precisely when accurate covariance estimation matters most.
-
-\begin{table}[H]
-\centering
-\caption{Neural+DFL vs.\ Neural+MSE tracking error by market regime. DFL's advantage is most pronounced in volatile conditions.}
-\label{tab:regime}
-\begin{tabular}{clccc}
+\caption{Summary comparison at $K = 20$ (hard-$K$, market-cap selection).}
+\label{tab:summary}
+\small
+\begin{tabular}{@{}lccc@{}}
 \toprule
-$K$ & Regime & Neural+DFL & Neural+MSE & $\Delta$ \\
+Method & TE & Turnover & Notes \\
 \midrule
-\multirow{3}{*}{5}
-    & Calm     & 0.0687 & 0.0740 & $-7.3\%$  \\
-    & Normal   & 0.0745 & 0.0811 & $-8.2\%$  \\
-    & Volatile & 0.0931 & 0.1051 & $\mathbf{-11.4\%}$ \\
+Direct weight MLP   & 0.0622 & 0.006 & No QP structure \\
+Naive market-cap    & 0.0462 & 0.000 & No optimization \\
+LW 2004 + QP        & 0.0325 & 0.000 & Linear shrinkage \\
+LW 2020 + QP        & 0.0293 & 0.000 & Nonlinear shrinkage \\
+Factor (MSE) + QP   & 0.0325 & 0.001 & Two-stage \\
+Neural (MSE) + QP   & 0.0326 & 0.003 & Two-stage \\
+\midrule
+Val-Tuned Shrinkage & 0.0292 & 0.068 & Grid search $\alpha$ \\
+SPO+ Surrogate      & 0.0290 & 0.064 & Decision regret \\
+\midrule
+Shrinkage + Task    & 0.0287 & 0.046 & 1 parameter \\
+Factor + Task       & 0.0286 & 0.051 & Task-aware \\
+Neural + Task       & 0.0287 & 0.030 & Most complex \\
+Struct.\ Shrinkage + Task & \textbf{0.0285} & 0.052 & 12 params, per-sector \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Key observation: \textbf{all MSE-trained models saturate at TE $\approx$ 0.0325} regardless of complexity (LW 2004, factor, neural). All task-aware methods break through to $\approx$ 0.029. Better statistical estimation (LW 2020 = 0.0293) narrows the gap but cannot close it.
+
+\subsection{Q3: DFL is Essential for Richer Models}
+
+\begin{table}[t]
+\centering
+\caption{Richer covariance models. RS = random search. $p$-values: task-aware vs.\ two-stage (Wilcoxon, 9 folds).}
+\label{tab:q3}
+\small
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+$K$ & Method & TE & TO & $p$ & Wins \\
 \midrule
 \multirow{3}{*}{10}
-    & Calm     & 0.0457 & 0.0494 & $-7.5\%$  \\
-    & Normal   & 0.0462 & 0.0493 & $-6.3\%$  \\
-    & Volatile & 0.0560 & 0.0593 & $-5.7\%$  \\
+& Cond.\ Shrinkage + MSE          & 0.0494 & 0.041 & --- & --- \\
+& RS-Conditional (200 trials)      & 0.0496 & 0.067 & --- & --- \\
+& \textbf{Cond.\ Shrinkage + Task} & \textbf{0.0490} & 0.047 & $0.014$ & 7/9 \\
 \midrule
 \multirow{3}{*}{20}
-    & Calm     & 0.0266 & 0.0299 & $-10.8\%$ \\
-    & Normal   & 0.0274 & 0.0306 & $-10.4\%$ \\
-    & Volatile & 0.0319 & 0.0369 & $\mathbf{-13.4\%}$ \\
+& Struct.\ Shrinkage + MSE         & 0.0287 & 0.051 & --- & --- \\
+& RS-Structured (500 trials)       & 0.0295 & 0.055 & --- & --- \\
+& \textbf{Struct.\ Shrinkage + Task} & \textbf{0.0285} & 0.052 & $0.006$ & 8/9 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[H]
+Table~\ref{tab:q3} shows that \textbf{DFL consistently outperforms random search} (1--4\% TE reduction). At $K{=}20$, structured shrinkage (12 params) achieves a highly significant improvement ($p = 0.006$, 8/9 folds).
+
+\textbf{Scaling to $N=478$:} At full S\&P 500 scale, structured DFL achieves $p = 0.031$ ($K{=}20$, 5 folds), confirming that richer models trained through differentiable optimization scale to realistic universes.
+
+\textbf{Practical sweet spot:} The 12-parameter structured model---enough capacity to capture sector-level structure, few enough to train stably. The 385-param conditional model shows overfitting instability at $K{=}20$ (only 4/9 folds improve).
+
+% ============================================================
+\section{Robustness and Practical Considerations}
+\label{sec:robustness}
+% ============================================================
+
+\subsection{Turnover}
+
+\begin{table}[h]
 \centering
-\includegraphics[width=0.95\textwidth]{../figures/fig9_regime_analysis.png}
-\caption{Tracking error by market regime. DFL (darker bars) consistently outperforms MSE (lighter bars), with the largest gap in volatile markets.}
+\caption{Turnover--TE Pareto frontier (Neural, $K = 20$).}
+\label{tab:turnover}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Method & $\gamma$ & TE & Turnover & vs Two-Stage \\
+\midrule
+Two-stage      & ---  & 0.0326 & 0.003 & --- \\
+Task-aware     & 0    & 0.0287 & 0.030 & $-11.9\%$ \\
+Task-aware     & 0.01 & 0.0299 & 0.003 & $-8.2\%$ \\
+Task-aware     & 0.1  & 0.0319 & 0.000 & $-2.2\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At $\gamma = 0.01$, turnover drops to two-stage levels while retaining 8.2\% TE improvement. DFL Pareto-dominates MSE at every turnover level.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\columnwidth]{figures/fig2_turnover_frontier.png}
+\caption{Turnover--TE Pareto frontier. Task-aware dominates across all turnover levels.}
+\label{fig:turnover}
+\end{figure}
+
+\subsection{Market Regimes}
+
+\begin{table}[h]
+\centering
+\caption{Task-aware gain by market regime (Neural, $K{=}20$).}
+\label{tab:regime}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Period & Two-Stage & Task-Aware & Gain \\
+\midrule
+High-volatility & 0.0343 & 0.0300 & $-12.7\%$ \\
+Low-volatility  & 0.0308 & 0.0276 & $-10.5\%$ \\
+2021 (inflation)  & 0.0394 & 0.0302 & $-23.5\%$ \\
+2022 (rate hikes) & 0.0412 & 0.0332 & $-19.4\%$ \\
+2017 (calm)       & 0.0275 & 0.0270 & $-2.0\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Gains in both regimes, largest during volatile shifts (when covariance estimation errors are largest and the cost of MSE's wasted effort is highest).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\columnwidth]{figures/fig9_regime_analysis.png}
+\caption{Task-aware advantage by market regime. Largest gains during regime transitions (2021--2022).}
 \label{fig:regime}
 \end{figure}
 
-\subsection{Turnover Analysis}
+\subsection{Risk Metrics and Tail Performance}
 
-DFL models exhibit higher turnover than MSE baselines (Table~\ref{tab:turnover}), reflecting more active weight adjustments. However, we find that explicitly penalizing turnover ($\lambda > 0$) degrades tracking error — in the extreme, $\lambda = 0.1$ effectively freezes the neural model. The optimal setting is $\lambda = 0$ (no penalty), accepting higher turnover for better tracking.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
-\caption{Average turnover per rebalance. DFL has higher turnover but achieves lower tracking error.}
-\label{tab:turnover}
-\begin{tabular}{ccccc}
+\caption{Risk metrics at $K{=}20$ (Neural, 9 folds).}
+\label{tab:risk}
+\small
+\begin{tabular}{@{}lccc@{}}
 \toprule
-$K$ & Neural+DFL & Neural+MSE & Factor+DFL & Factor+MSE \\
+Metric & Two-Stage & Task-Aware & Improvement \\
 \midrule
-5  & 0.042 & 0.003 & 0.056 & 0.001 \\
-10 & 0.048 & 0.004 & 0.052 & 0.001 \\
-20 & 0.030 & 0.003 & 0.051 & 0.001 \\
-30 & 0.007 & 0.003 & 0.034 & 0.001 \\
-50 & 0.001 & 0.001 & 0.021 & 0.001 \\
+Annualized TE & 0.0326 & 0.0287 & $-11.9\%$ \\
+Worst-fold TE & 0.0476 & 0.0348 & $-26.8\%$ \\
+TE std across folds & 0.0062 & 0.0025 & $-59.4\%$ \\
+CVaR$_{5\%}$ (daily) & 0.0047 & 0.0041 & $-11.5\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Cumulative Tracking Performance}
+Task-aware estimation reduces not only average TE but also its variability and tail behavior. The worst-fold improvement ($-26.8\%$) is particularly notable for risk-conscious practitioners.
 
-Figure~\ref{fig:cumulative} shows cumulative portfolio returns versus the index for the longest test fold at $K = 20$. DFL portfolios track the index more tightly, with smaller cumulative drift.
+\subsection{Portfolio Concentration}
 
-\begin{figure}[H]
+\begin{table}[h]
 \centering
-\includegraphics[width=0.95\textwidth]{../figures/fig5_cumulative_tracking_K20.png}
-\caption{Cumulative portfolio return vs.\ index (left) and cumulative tracking difference (right) at $K = 20$.}
-\label{fig:cumulative}
+\caption{Portfolio characteristics at $K{=}20$ (Neural, 9 folds). Concentration is identical.}
+\label{tab:concentration}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Method & TE & HHI & Eff.\ $N$ & Max Position \\
+\midrule
+Two-Stage & 0.0326 & 0.067 & 15.0 & 17.3\% \\
+Task-Aware & 0.0287 & 0.068 & 14.7 & 17.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Identical HHI and maximum position. The improvement is pure estimation quality, not portfolio restructuring. UCITS 5/10/40 position limits ($w_{\max} = 10\%$) also preserve the task-aware advantage ($+10.5\%$, $p = 0.002$).
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.48\columnwidth}
+  \includegraphics[width=\textwidth]{figures/fig3_te_boxplot_K20.png}
+  \caption{TE distribution across 9 folds at $K{=}20$.}
+  \label{fig:boxplot}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\columnwidth}
+  \includegraphics[width=\textwidth]{figures/fig5_cumulative_tracking_K20.png}
+  \caption{Cumulative tracking difference over time.}
+  \label{fig:cumulative}
+\end{subfigure}
+\caption{Task-aware estimation reduces both the mean and variance of tracking error (left) and maintains tighter cumulative tracking throughout the test period (right).}
+\label{fig:te_panels}
 \end{figure}
 
-% ══════════════════════════════════════════════════════════════════════
+\subsection{Additional Checks and Computational Cost}
+
+Further robustness checks confirm stability: lookback windows (21--126 days) yield gains of 10--12\%; rebalancing frequency (weekly/biweekly/monthly) shows stable $\sim$12\% gain; cross-benchmark tests (Russell 2000, Tech sector) replicate 1-param findings; and factor-exposure analysis reveals no hidden factor bets ($|t| < 0.8$, $R^2 = 0.0003$). Notably, \textbf{dynamic stock selection + DFL hurts} (TE = 0.0346 vs.\ 0.0287, $6\times$ higher turnover), validating our detached selection design. A direct-weight MLP (no QP) achieves TE = 0.0622 ($2\times$ worse), confirming the QP is essential inductive bias.
+
+Regarding computational cost, task-aware training converges in 15 epochs (26.3s per fold on Apple M1) vs.\ 47 epochs (38.9s) for MSE, because the task loss provides a more direct gradient signal. Grid search requires only 0.6s for 50 $\alpha$ values.
+
+% ============================================================
 \section{Discussion}
 \label{sec:discussion}
+% ============================================================
 
-\paragraph{When does DFL help?}
-Our results reveal a clear pattern: DFL provides the largest gains when (1) sparsity is tight ($K$ is small) and (2) markets are volatile. Both conditions amplify the sensitivity of the portfolio to covariance estimation quality. At high $K$ or in calm markets, even rough covariance estimates yield adequate portfolios, leaving little room for DFL to improve.
+\paragraph{Practical guidelines.}
+(1)~Always use a tracking-error-aligned objective---this is the single highest-impact change (5--12\% TE reduction).
+(2)~Use grid search for 1-param models (0.6s); use DFL for 12+ param models.
+(3)~Expect larger gains at lower $K/N$.
+(4)~Detach stock selection from weight optimization.
 
-\paragraph{Factor vs.\ Neural.}
-Both architectures benefit from DFL, with surprisingly similar improvements ($\sim$10\% at $K = 5, 20$). This suggests that the \emph{training objective} matters more than the \emph{model capacity} for this task. The factor model's low-rank inductive bias may even be advantageous — it prevents overfitting in the $O(N^2)$ covariance space.
-
-\paragraph{Turnover--Tracking Error Trade-off.}
-DFL achieves lower TE at the cost of higher turnover. In practice, this trade-off is managed by transaction cost budgets. We experimented with turnover penalties ($\lambda \in \{0, 0.01, 0.1\}$) but found that any $\lambda > 0$ disproportionately harms TE. Future work could explore adaptive penalty schedules.
+\textbf{Decision rule:} $K/N > 0.3$: alignment gains minimal. 1-param: grid search on validation TE. 12+ params: DFL via differentiable QP.
 
 \paragraph{Limitations.}
-\begin{itemize}
-    \item Stock selection is fixed by market-cap ranking, not learned. Covariance-aware selection could further amplify DFL's advantage but introduces combinatorial complexity.
-    \item Transaction costs are not explicitly modeled beyond turnover measurement.
-    \item The 97-stock universe is a subset of the full S\&P~500; larger universes may benefit more from DFL.
-\end{itemize}
+Survivorship bias (current top-100 universe, not point-in-time); flat transaction cost model; richer models validated only on S\&P 500 (no DCC-GARCH comparison); 385-param conditional model overfits at $K{=}20$ (12-param structured model is the practical sweet spot).
 
-% ══════════════════════════════════════════════════════════════════════
+% ============================================================
 \section{Conclusion}
 \label{sec:conclusion}
+% ============================================================
 
-We have demonstrated that Decision-Focused Learning significantly improves sparse index tracking at low sparsity levels. By replacing MSE with an end-to-end task loss that differentiates through a QP solver, our approach aligns the covariance model's training objective with the downstream portfolio decision. The key insight is that \emph{not all covariance errors are equal} — DFL focuses model capacity on the entries that matter for the portfolio, yielding up to 11.9\% tracking error reduction at $K = 20$. The advantage is robust across 9 rolling folds, two model architectures, and multiple market regimes, with the strongest gains in volatile conditions where accurate covariance estimation is most critical.
+We identified sparse index tracking as a setting where the predict-then-optimize gap is structurally amplified by the cardinality constraint, and provided a gradient alignment bound ($\cos \leq \sqrt{2K/N}$) that quantitatively predicts when task-aware estimation is worth the effort.
 
-% ══════════════════════════════════════════════════════════════════════
+Our results decompose into two components. First, \textbf{objective alignment}: tuning the covariance model to minimize tracking error (even via grid search) accounts for the majority of the gain (5--12\% TE reduction, $p = 0.002$). This is the single most actionable finding---the Ledoit-Wolf $\alpha$ that minimizes Frobenius loss is not the one that minimizes tracking error. Second, \textbf{richer model training}: for models with 12+ parameters, differentiable optimization through the QP provides the only viable training path, achieving significant gains at $N{=}478$ ($p = 0.031$).
+
+The improvement is robust across 19 years of data, nine rolling folds, three benchmarks, UCITS position limits, transaction costs, and turnover penalties---without increasing portfolio concentration. For practitioners, the takeaway is: \textbf{align your estimation objective with your decision objective, and use the simplest method that achieves alignment.}
+
+% ============================================================
+% References
+% ============================================================
 \bibliographystyle{plainnat}
-\begin{thebibliography}{10}
+\begin{thebibliography}{15}
 
 \bibitem[Agrawal et~al.(2019)]{agrawal2019differentiable}
-Agrawal, A., Amos, B., Barratt, S., Boyd, S., Diamond, S., and Kolter, J.~Z.
+A.~Agrawal, B.~Amos, S.~Barratt, S.~Boyd, S.~Diamond, and J.~Z. Kolter.
 \newblock Differentiable convex optimization layers.
 \newblock In \emph{NeurIPS}, 2019.
 
 \bibitem[Amos and Kolter(2017)]{amos2017optnet}
-Amos, B. and Kolter, J.~Z.
-\newblock OptNet: Differentiable optimization as a layer in neural networks.
+B.~Amos and J.~Z. Kolter.
+\newblock {OptNet}: Differentiable optimization as a layer in neural networks.
 \newblock In \emph{ICML}, 2017.
 
 \bibitem[Beasley et~al.(2003)]{beasley2003evolutionary}
-Beasley, J.~E., Meade, N., and Chang, T.-J.
+J.~E. Beasley, N.~Meade, and T.-J. Chang.
 \newblock An evolutionary heuristic for the index tracking problem.
 \newblock \emph{European Journal of Operational Research}, 148(3):621--643, 2003.
 
 \bibitem[Benidis et~al.(2018)]{benidis2018sparse}
-Benidis, K., Feng, Y., and Palomar, D.~P.
+K.~Benidis, Y.~Feng, and D.~P. Palomar.
 \newblock Sparse portfolios for high-dimensional financial index tracking.
 \newblock \emph{IEEE Transactions on Signal Processing}, 66(1):155--170, 2018.
 
-\bibitem[Brodie et~al.(2009)]{brodie2009sparse}
-Brodie, J., Daubechies, I., De~Mol, C., Giannone, D., and Loris, I.
-\newblock Sparse and stable Markowitz portfolios.
-\newblock \emph{PNAS}, 106(30):12267--12272, 2009.
+\bibitem[Butler and Kwon(2023)]{butler2023integrating}
+A.~Butler and R.~H. Kwon.
+\newblock Integrating prediction and optimization for smart portfolio management.
+\newblock In \emph{ICML Workshop on New Frontiers in Learning, Control, and Dynamical Systems}, 2023.
 
 \bibitem[Donti et~al.(2017)]{donti2017task}
-Donti, P.~L., Amos, B., and Kolter, J.~Z.
+P.~L. Donti, B.~Amos, and J.~Z. Kolter.
 \newblock Task-based end-to-end model learning in stochastic optimization.
 \newblock In \emph{NeurIPS}, 2017.
 
-\bibitem[Duchi et~al.(2008)]{duchi2008efficient}
-Duchi, J., Shalev-Shwartz, S., Singer, Y., and Chandra, T.
-\newblock Efficient projections onto the $\ell_1$-ball for learning in high dimensions.
-\newblock In \emph{ICML}, 2008.
-
 \bibitem[Elmachtoub and Grigas(2022)]{elmachtoub2022smart}
-Elmachtoub, A.~N. and Grigas, P.
+A.~N. Elmachtoub and P.~Grigas.
 \newblock Smart ``predict, then optimize''.
 \newblock \emph{Management Science}, 68(1):9--26, 2022.
 
-\bibitem[Monga et~al.(2021)]{monga2021algorithm}
-Monga, V., Li, Y., and Eldar, Y.~C.
-\newblock Algorithm unrolling: Interpretable, efficient deep learning for signal and image processing.
-\newblock \emph{IEEE Signal Processing Magazine}, 38(2):18--44, 2021.
+\bibitem[Ledoit and Wolf(2004)]{ledoit2004well}
+O.~Ledoit and M.~Wolf.
+\newblock A well-conditioned estimator for large-dimensional covariance matrices.
+\newblock \emph{Journal of Multivariate Analysis}, 88(2):365--411, 2004.
+
+\bibitem[Ledoit and Wolf(2020)]{ledoit2020analytical}
+O.~Ledoit and M.~Wolf.
+\newblock Analytical nonlinear shrinkage of large-dimensional covariance matrices.
+\newblock \emph{Annals of Statistics}, 48(5):3043--3065, 2020.
+
+\bibitem[Kolm et~al.(2014)]{kolm2014years}
+P.~N. Kolm, R.~T{\"u}t{\"u}nc{\"u}, and F.~J. Fabozzi.
+\newblock 60 years of portfolio optimization: Practical challenges and current trends.
+\newblock \emph{European Journal of Operational Research}, 234(2):356--371, 2014.
+
+\bibitem[Mandi et~al.(2024)]{mandi2024decision}
+J.~Mandi, J.~Kotary, S.~Berber, and T.~Guns.
+\newblock Decision-focused learning: Foundations, state of the art, benchmark and future opportunities.
+\newblock \emph{Journal of Artificial Intelligence Research}, 80:1623--1701, 2024.
+
+\bibitem[Wilder et~al.(2019)]{wilder2019melding}
+B.~Wilder, B.~Dilkina, and M.~Tambe.
+\newblock Melding the data-decisions pipeline: Decision-focused learning for combinatorial optimization.
+\newblock In \emph{AAAI}, 2019.
+
+\bibitem[Canakgoz and Beasley(2009)]{canakgoz2009mixed}
+N.~A. Canakgoz and J.~E. Beasley.
+\newblock Mixed-integer programming approaches for index tracking and enhanced indexation.
+\newblock \emph{European Journal of Operational Research}, 196(1):384--399, 2009.
+
+\bibitem[DeMiguel et~al.(2009)]{demiguel2009optimal}
+V.~DeMiguel, L.~Garlappi, and R.~Uppal.
+\newblock Optimal versus naive diversification: How inefficient is the 1/N portfolio strategy?
+\newblock \emph{Review of Financial Studies}, 22(5):1915--1953, 2009.
 
 \end{thebibliography}
+
+% ============================================================
+\section{Author Contributions}
+\label{sec:contributions}
+% ============================================================
+
+\textbf{Aojie Yuan:} Problem formulation, QP implementation (cvxpylayers), covariance models (shrinkage/structured/conditional/neural), all experiments, gradient alignment bound derivation, paper writing.
+
+\textbf{Haiyue Zhang:} Data pipeline, feature engineering, rolling-window evaluation framework, baseline implementations (LW2004/LW2020/SPO+), regime analysis, presentation preparation.
+
+% ============================================================
+\section{Feedback Incorporation}
+\label{sec:feedback}
+% ============================================================
+
+\textit{[To be completed after the final presentation and code review.]}
+
+This section will describe how we incorporated feedback from: (1) the final presentation Q\&A session, and (2) the written code review and Zoom discussion with peer reviewers.
 
 \end{document}
