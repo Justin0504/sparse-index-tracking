@@ -181,7 +181,7 @@ def evaluate_model(model, data_test, N, K):
         return None
 
     from src.evaluation.metrics import tracking_error, turnover
-    te = tracking_error(np.array(all_port_rets), np.array(all_idx_rets), annualization=365)
+    te = tracking_error(np.array(all_port_rets), np.array(all_idx_rets), annualization_factor=365)
     avg_to = float(np.mean([turnover(weights_history[j], weights_history[j + 1])
                             for j in range(len(weights_history) - 1)])) if len(weights_history) > 1 else 0.0
     return {"tracking_error": te, "avg_turnover": avg_to}
@@ -213,7 +213,7 @@ def run_poet_baseline(data_test, N, K):
         return None
 
     from src.evaluation.metrics import tracking_error, turnover
-    te = tracking_error(np.array(all_port_rets), np.array(all_idx_rets), annualization=365)
+    te = tracking_error(np.array(all_port_rets), np.array(all_idx_rets), annualization_factor=365)
     avg_to = float(np.mean([turnover(weights_history[j], weights_history[j + 1])
                             for j in range(len(weights_history) - 1)])) if len(weights_history) > 1 else 0.0
     return {"tracking_error": te, "avg_turnover": avg_to}
@@ -229,6 +229,11 @@ def main():
         anomalies, field_avg, station_ids, metadata = loader.load()
         log.info(f"  {len(station_ids)} stations, {len(anomalies)} days")
 
+        N_actual = len(station_ids)
+        if N_actual < 10:
+            log.warning(f"  Only {N_actual} stations available, skipping N={N}")
+            continue
+
         data = anomalies.values.astype(np.float32)
         T_total = len(data)
         T_train = int(T_total * 0.6)
@@ -242,24 +247,24 @@ def main():
         grid_size = 3
         if metadata is not None and len(metadata) > 0:
             region_ids = loader.assign_regions(metadata, grid_size=grid_size)
-            if len(region_ids) != N:
-                region_ids = np.random.RandomState(42).randint(0, n_regions, N)
+            if len(region_ids) != N_actual:
+                region_ids = np.random.RandomState(42).randint(0, n_regions, N_actual)
         else:
-            region_ids = np.random.RandomState(42).randint(0, n_regions, N)
+            region_ids = np.random.RandomState(42).randint(0, n_regions, N_actual)
 
         K_values = [10, 20, 50]
-        K_values = [k for k in K_values if k <= N // 2]
+        K_values = [k for k in K_values if k <= N_actual // 2]
 
         for K in K_values:
-            kn = K / N
+            kn = K / N_actual
             alignment = np.sqrt(2 * kn)
-            log.info(f"\n  N={N}, K={K}, K/N={kn:.3f}, alignment={alignment:.3f}")
+            log.info(f"\n  N={N_actual}, K={K}, K/N={kn:.3f}, alignment={alignment:.3f}")
 
             log.info(f"    POET baseline...")
-            poet_res = run_poet_baseline(data_test, N, K)
+            poet_res = run_poet_baseline(data_test, N_actual, K)
             if poet_res:
                 result = {
-                    "N": N, "K": K, "model": "POET", "loss": "N/A",
+                    "N": N_actual, "K": K, "model": "POET", "loss": "N/A",
                     "alignment": round(alignment, 4),
                     **poet_res,
                 }
@@ -268,8 +273,8 @@ def main():
 
             for loss_type in ["mse", "task"]:
                 log.info(f"    Structured {loss_type}...")
-                model = train_model(data_train, data_val, N, K, region_ids, n_regions, loss_type)
-                res = evaluate_model(model, data_test, N, K)
+                model = train_model(data_train, data_val, N_actual, K, region_ids, n_regions, loss_type)
+                res = evaluate_model(model, data_test, N_actual, K)
                 if res:
                     result = {
                         "N": N, "K": K, "model": "spatial_structured", "loss": loss_type,

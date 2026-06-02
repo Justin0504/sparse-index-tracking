@@ -72,18 +72,40 @@ def _download_asos_data(
     }
 
     all_data = []
-    batch_size = 50
-    for i in range(0, len(stations), batch_size):
-        batch = stations[i:i + batch_size]
-        log.info(f"  Downloading batch {i // batch_size + 1}/"
-                 f"{(len(stations) + batch_size - 1) // batch_size} ({len(batch)} stations)...")
-        batch_params = dict(params)
-        batch_params["station"] = batch
+    batch_size = 20
+    start_year = int(start_date[:4])
+    end_year = int(end_date[:4])
 
-        resp = requests.get(IEM_BASE, params=batch_params, timeout=120)
-        if resp.status_code == 200 and len(resp.text) > 100:
-            df = pd.read_csv(StringIO(resp.text), na_values=["M", "T", ""])
-            all_data.append(df)
+    for year in range(start_year, end_year + 1):
+        y_start = f"{year}-01-01"
+        y_end = f"{year}-12-31" if year < end_year else end_date
+        year_params = dict(params)
+        year_params["year1"] = str(year)
+        year_params["month1"] = "1"
+        year_params["day1"] = "1"
+        year_params["year2"] = str(year)
+        year_params["month2"] = "12"
+        year_params["day2"] = "31"
+
+        for i in range(0, len(stations), batch_size):
+            batch = stations[i:i + batch_size]
+            if year == start_year and i == 0:
+                total_batches = len(range(start_year, end_year + 1)) * ((len(stations) + batch_size - 1) // batch_size)
+                log.info(f"  Total: ~{total_batches} batches ({end_year - start_year + 1} years × {(len(stations) + batch_size - 1) // batch_size} station batches)")
+            batch_params = dict(year_params)
+            batch_params["station"] = batch
+
+            try:
+                resp = requests.get(IEM_BASE, params=batch_params, timeout=300)
+                if resp.status_code == 200 and len(resp.text) > 100:
+                    df = pd.read_csv(StringIO(resp.text), na_values=["M", "T", ""])
+                    all_data.append(df)
+            except Exception as e:
+                log.warning(f"  Year {year} batch {i//batch_size}: {e}")
+                continue
+
+        if year % 3 == 0:
+            log.info(f"  Year {year} done, {len(all_data)} batches collected")
 
     if not all_data:
         raise RuntimeError("No data downloaded from IEM")
@@ -137,6 +159,14 @@ class WeatherStationLoader:
         id_col = "stid" if "stid" in meta.columns else ("id" if "id" in meta.columns else meta.columns[0])
         station_ids_all = meta[id_col].tolist()
         log.info(f"Found {len(station_ids_all)} CONUS ASOS stations")
+
+        max_download = min(len(station_ids_all), self.n_stations * 3)
+        if len(station_ids_all) > max_download:
+            rng = np.random.RandomState(42)
+            idx = rng.choice(len(station_ids_all), max_download, replace=False)
+            station_ids_all = [station_ids_all[i] for i in sorted(idx)]
+            meta = meta[meta[id_col].isin(station_ids_all)]
+            log.info(f"Subsampled to {len(station_ids_all)} stations for download")
 
         log.info(f"Downloading temperature data ({self.start_date} → {self.end_date})...")
         raw = _download_asos_data(station_ids_all, self.start_date, self.end_date)
