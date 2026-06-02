@@ -25,13 +25,24 @@ _US_STATES = [
 
 
 def _fetch_station_list() -> pd.DataFrame:
-    """Fetch ASOS station metadata from IEM."""
+    """Fetch ASOS station metadata from IEM (per-state networks)."""
     import requests
-    url = "https://mesonet.agron.iastate.edu/sites/networks.php?network=ASOS&format=csv&nohtml=on"
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    df = pd.read_csv(StringIO(resp.text))
-    return df
+    all_dfs = []
+    for state in _US_STATES:
+        url = f"https://mesonet.agron.iastate.edu/sites/networks.php?network={state}_ASOS&format=csv&nohtml=on"
+        try:
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200 and len(resp.text) > 100:
+                df = pd.read_csv(StringIO(resp.text))
+                df["state"] = state
+                all_dfs.append(df)
+        except Exception:
+            continue
+    if not all_dfs:
+        raise RuntimeError("No ASOS station data fetched from IEM")
+    result = pd.concat(all_dfs, ignore_index=True)
+    log.info(f"Fetched {len(result)} ASOS stations from {len(all_dfs)} states")
+    return result
 
 
 def _download_asos_data(
@@ -123,7 +134,8 @@ class WeatherStationLoader:
             meta = meta[(meta["lat"] > 24) & (meta["lat"] < 50)]
             meta = meta[(meta["lon"] > -130) & (meta["lon"] < -65)]
 
-        station_ids_all = meta["id"].tolist() if "id" in meta.columns else meta.iloc[:, 0].tolist()
+        id_col = "stid" if "stid" in meta.columns else ("id" if "id" in meta.columns else meta.columns[0])
+        station_ids_all = meta[id_col].tolist()
         log.info(f"Found {len(station_ids_all)} CONUS ASOS stations")
 
         log.info(f"Downloading temperature data ({self.start_date} → {self.end_date})...")
@@ -156,8 +168,8 @@ class WeatherStationLoader:
         station_ids = list(anomalies.columns)
 
         meta_out = None
-        if "id" in meta.columns:
-            meta_out = meta[meta["id"].isin(station_ids)].copy()
+        if id_col in meta.columns:
+            meta_out = meta[meta[id_col].isin(station_ids)].copy()
 
         log.info(f"Final: {len(station_ids)} stations, {len(anomalies)} days")
 
