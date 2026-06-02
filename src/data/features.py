@@ -361,6 +361,142 @@ class FeatureBuilder:
 
         return d
 
+    def compute_poet_covariance(
+        self,
+        returns: pd.DataFrame,
+        date: pd.Timestamp,
+        lookback: int = 63,
+        n_factors: int = 5,
+        threshold_constant: float = 1.0,
+    ) -> np.ndarray:
+        """POET covariance estimator (Fan, Liao & Mincheva, 2013).
+
+        Principal Orthogonal complEment Thresholding:
+        1. PCA on returns → top-K_f eigenvectors
+        2. Factor covariance: B * Lambda * B^T
+        3. Residual soft-thresholding with adaptive threshold
+        4. Recompose: Sigma = factor_cov + R_thresholded
+
+        Parameters
+        ----------
+        returns : DataFrame (dates × N stocks)
+        date : rebalancing date
+        lookback : number of trailing days
+        n_factors : number of PCA factors to retain
+        threshold_constant : C in adaptive threshold tau_ij = C * sqrt(theta_ij * log(N)/T)
+
+        Returns
+        -------
+        cov_poet : ndarray (N, N) — POET covariance estimate
+        """
+        loc = returns.index.get_loc(date)
+        start = max(0, loc - lookback)
+        X = returns.iloc[start:loc].values  # (T, N)
+        T, N = X.shape
+        if T < 2:
+            return np.eye(N, dtype=np.float32) * 1e-4
+
+        # Center
+        X_centered = X - X.mean(axis=0)
+
+        # Sample covariance
+        S = (X_centered.T @ X_centered) / (T - 1)
+
+        # PCA: eigendecomposition (ascending from eigh)
+        eigenvalues, eigenvectors = np.linalg.eigh(S)
+        # Take top n_factors (largest eigenvalues are last)
+        k = min(n_factors, N, T - 1)
+        lam_k = eigenvalues[-k:]  # (k,)
+        V_k = eigenvectors[:, -k:]  # (N, k)
+
+        # Factor covariance: V_k * diag(lam_k) * V_k^T
+        factor_cov = (V_k * lam_k) @ V_k.T  # (N, N)
+
+        # Residual matrix
+        R = S - factor_cov
+
+        # Adaptive thresholding (Fan et al. 2013, Eq. 3.6)
+        # theta_ij = (1/T) sum_t (x_it*x_jt - S_ij)^2
+        # Vectorized: theta = E[x_i^2 * x_j^2] - 2*S*E[x_i*x_j] + S^2
+        #           = (X^2)^T @ (X^2) / T - S^2  (using E[x_i*x_j] ≈ S*(T-1)/T ≈ S)
+        X2 = X_centered ** 2  # (T, N)
+        E_x2x2 = (X2.T @ X2) / T  # (N, N)
+        S_scaled = S * (T - 1) / T
+        theta = E_x2x2 - S_scaled ** 2
+
+        tau = threshold_constant * np.sqrt(theta * np.log(N) / T)
+
+        # Soft thresholding: sign(R_ij) * max(|R_ij| - tau_ij, 0)
+        R_thresh = np.sign(R) * np.maximum(np.abs(R) - tau, 0)
+
+        # Keep diagonal of R untouched (only threshold off-diagonal)
+        np.fill_diagonal(R_thresh, np.diag(R))
+
+        # Recompose
+        cov_poet = factor_cov + R_thresh
+
+        # Ensure symmetry and PSD (clip negative eigenvalues)
+        cov_poet = (cov_poet + cov_poet.T) / 2
+        eigvals, eigvecs = np.linalg.eigh(cov_poet)
+        eigvals = np.maximum(eigvals, 1e-8)
+        cov_poet = (eigvecs * eigvals) @ eigvecs.T
+
+        return cov_poet.astype(np.float32)
+
+    def compute_glasso_covariance(
+        self,
+        returns: pd.DataFrame,
+        date: pd.Timestamp,
+        lookback: int = 63,
+        alpha: float | None = None,
+    ) -> np.ndarray:
+        """Graphical Lasso covariance estimator.
+
+        Estimates a sparse precision matrix via L1-penalized MLE,
+        then returns the corresponding covariance matrix.
+
+        Parameters
+        ----------
+        returns : DataFrame (dates × N stocks)
+        date : rebalancing date
+        lookback : number of trailing days
+        alpha : L1 penalty (None = use cross-validation)
+
+        Returns
+        -------
+        cov_glasso : ndarray (N, N) — GraphicalLasso covariance estimate
+        """
+        from sklearn.covariance import GraphicalLassoCV, GraphicalLasso as GL
+
+        loc = returns.index.get_loc(date)
+        start = max(0, loc - lookback)
+        X = returns.iloc[start:loc].values  # (T, N)
+        T, N = X.shape
+        if T < 2:
+            return np.eye(N, dtype=np.float32) * 1e-4
+
+        if T / N < 1.5:
+            X_centered = X - X.mean(axis=0)
+            cov = (X_centered.T @ X_centered) / (T - 1)
+            mu = np.trace(cov) / N
+            return (0.9 * cov + 0.1 * mu * np.eye(N)).astype(np.float32)
+
+        try:
+            if alpha is None:
+                model = GraphicalLassoCV(cv=5, alphas=8, max_iter=200, tol=1e-4)
+            else:
+                model = GL(alpha=alpha, max_iter=200, tol=1e-4)
+            model.fit(X)
+            cov_glasso = model.covariance_
+        except Exception:
+            # Fallback to sample covariance with shrinkage if GL fails
+            X_centered = X - X.mean(axis=0)
+            cov_glasso = (X_centered.T @ X_centered) / (T - 1)
+            mu = np.trace(cov_glasso) / N
+            cov_glasso = 0.9 * cov_glasso + 0.1 * mu * np.eye(N)
+
+        return cov_glasso.astype(np.float32)
+
     def compute_stock_index_covariance(
         self,
         returns: pd.DataFrame,
