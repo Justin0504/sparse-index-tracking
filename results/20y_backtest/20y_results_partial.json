@@ -1,0 +1,315 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "regime": "crisis_2008",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0321
+    },
+    {
+      "fold": 0,
+      "regime": "crisis_2008",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0321
+    },
+    {
+      "fold": 1,
+      "regime": "crisis_2008",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0274
+    },
+    {
+      "fold": 1,
+      "regime": "crisis_2008",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0274
+    },
+    {
+      "fold": 2,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0282
+    },
+    {
+      "fold": 2,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0281
+    },
+    {
+      "fold": 3,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0285
+    },
+    {
+      "fold": 3,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0285
+    },
+    {
+      "fold": 4,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0279
+    },
+    {
+      "fold": 4,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0279
+    },
+    {
+      "fold": 5,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0288
+    },
+    {
+      "fold": 5,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0289
+    },
+    {
+      "fold": 6,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.029
+    },
+    {
+      "fold": 6,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.029
+    },
+    {
+      "fold": 7,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0315
+    },
+    {
+      "fold": 7,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0314
+    },
+    {
+      "fold": 8,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0324
+    },
+    {
+      "fold": 8,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0324
+    },
+    {
+      "fold": 9,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0321
+    },
+    {
+      "fold": 9,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0321
+    },
+    {
+      "fold": 10,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0347
+    },
+    {
+      "fold": 10,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0346
+    },
+    {
+      "fold": 11,
+      "regime": "covid_2020",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0384
+    },
+    {
+      "fold": 11,
+      "regime": "covid_2020",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0384
+    },
+    {
+      "fold": 12,
+      "regime": "covid_2020",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0345
+    },
+    {
+      "fold": 12,
+      "regime": "covid_2020",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0345
+    },
+    {
+      "fold": 13,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0313
+    },
+    {
+      "fold": 13,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "task",
+      "market": "SP500_20y",
+      "tracking_error": 0.0311
+    },
+    {
+      "fold": 14,
+      "regime": "rate_hike_2022",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0296
+    },
+    {
+      "fold": 15,
+      "regime": "rate_hike_2022",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0382
+    },
+    {
+      "fold": 16,
+      "regime": "normal",
+      "K": 20,
+      "N": 100,
+      "model": "shrinkage",
+      "loss": "mse",
+      "market": "SP500_20y",
+      "tracking_error": 0.0337
+    }
+  ],
+  "note": "Partial: 17 MSE + 14 DFL folds completed, 3 DFL pending"
+}

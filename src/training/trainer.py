@@ -15,7 +15,7 @@ from src.models.shrinkage_model import (
     StructuredShrinkageModel,
 )
 from src.optimization.qp_layer import SparseTrackingQP, L1TrackingQP
-from src.training.losses import mse_loss, task_loss
+from src.training.losses import mse_loss, task_loss, bd_dfl_loss, lodl_surrogate_loss
 from src.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -47,6 +47,9 @@ class Trainer:
         l1_lambda: float = 0.01,
         lookahead_steps: int = 1,
         curriculum_epochs: int = 0,
+        bd_dfl_beta: float = 0.0,
+        lodl_n_samples: int = 20,
+        lodl_perturbation_scale: float = 0.01,
     ):
         self.model = model.to(device)
         self.feature_builder = feature_builder
@@ -63,6 +66,12 @@ class Trainer:
         self.tc_cost = 0.0  # transaction cost in QP objective
         self.lookahead_steps = lookahead_steps  # multi-step lookahead (1 = single-step)
         self.curriculum_epochs = curriculum_epochs  # epochs of pure MSE before transitioning
+        self.bd_dfl_beta = bd_dfl_beta  # BD-DFL: MSE regularization weight (0 = pure DFL)
+        self.bd_dfl_adaptive = False  # adaptive β based on selection turnover
+        self.bd_dfl_base_beta = 1.0  # base coefficient for adaptive β = base * r²/N²
+        self._prev_selection_set = None  # track selection set for adaptive β
+        self.lodl_n_samples = lodl_n_samples
+        self.lodl_perturbation_scale = lodl_perturbation_scale
 
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=lr, weight_decay=weight_decay
@@ -294,6 +303,37 @@ class Trainer:
                 scaled_loss.backward()
             return float(loss.detach().cpu()), None
 
+        if loss_type == "lodl":
+            if loc + forward_window > len(returns_df):
+                return None, None
+            from src.optimization.solver import solve_tracking_qp
+            future_ret_np = returns_df.iloc[loc: loc + forward_window].values
+            future_ret_t = torch.tensor(
+                future_ret_np, dtype=torch.float32, device=self.device
+            )
+            if train:
+                loss = lodl_surrogate_loss(
+                    cov_pred, w_idx_t, future_ret_t,
+                    solve_qp_fn=solve_tracking_qp,
+                    K=self.sparsity_K,
+                    selection=self.selection,
+                    n_samples=self.lodl_n_samples,
+                    perturbation_scale=self.lodl_perturbation_scale,
+                )
+                scaled_loss = loss / accum_scale
+                scaled_loss.backward()
+                return float(loss.detach().cpu()), None
+            else:
+                cov_np = cov_pred.detach().cpu().numpy()
+                w_idx_np = w_idx_t.detach().cpu().numpy()
+                try:
+                    w_opt_np = solve_tracking_qp(cov_np, w_idx_np, K=self.sparsity_K, selection=self.selection)
+                except Exception:
+                    return None, None
+                w_opt_t = torch.tensor(w_opt_np, dtype=torch.float32, device=self.device)
+                val_loss = task_loss(w_opt_t, w_idx_t, future_ret_t)
+                return float(val_loss.detach().cpu()), w_opt_t
+
         # Task loss (DFL) or curriculum blend
         if loc + forward_window > len(returns_df):
             return None, None
@@ -328,6 +368,30 @@ class Trainer:
             cov_target = torch.tensor(cov_target_np, dtype=torch.float32, device=self.device)
             m_loss = mse_loss(cov_pred, cov_target)
             loss = (1 - task_weight) * m_loss + task_weight * t_loss
+        elif self.bd_dfl_beta > 0 or self.bd_dfl_adaptive:
+            cov_target_np = self.feature_builder.compute_realized_covariance(
+                returns_df, date, lookback
+            )
+            cov_target = torch.tensor(cov_target_np, dtype=torch.float32, device=self.device)
+
+            beta = self.bd_dfl_beta
+            if self.bd_dfl_adaptive:
+                current_set = set((w_opt.detach() > 1e-6).nonzero(as_tuple=True)[0].tolist())
+                if self._prev_selection_set is not None:
+                    r = len(current_set.symmetric_difference(self._prev_selection_set)) / 2
+                    beta = self.bd_dfl_base_beta * (r ** 2) / (n_stocks ** 2)
+                    beta = max(beta, 1e-5)
+                else:
+                    beta = 0.001
+                self._prev_selection_set = current_set
+
+            loss, _, _ = bd_dfl_loss(
+                w_opt, w_idx_t, future_ret_t,
+                cov_pred, cov_target,
+                beta=beta,
+                w_prev=w_prev,
+                turnover_penalty=self.turnover_penalty,
+            )
         else:
             loss = t_loss
 

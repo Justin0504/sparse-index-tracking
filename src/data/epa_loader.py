@@ -102,7 +102,7 @@ class EPAAirQualityLoader:
         coverage = pivot.notna().mean()
         good = coverage[coverage >= self.min_coverage].index.tolist()
         log.info(f"Stations with >= {self.min_coverage:.0%} coverage: {len(good)}")
-        pivot = pivot[good].ffill(limit=3).bfill(limit=3).dropna(axis=1)
+        pivot = pivot[good].ffill(limit=7).bfill(limit=7).dropna(axis=1)
 
         if len(pivot.columns) > self.n_stations:
             rng = np.random.RandomState(42)

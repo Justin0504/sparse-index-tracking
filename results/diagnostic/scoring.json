@@ -1,0 +1,594 @@
+{
+  "overall_accuracy": 0.7575757575757576,
+  "v2_accuracy": 0.8787878787878788,
+  "n_scored": 33,
+  "n_unmatched": 2,
+  "threshold_pct": 1.0,
+  "scored": [
+    {
+      "id": "SP1500_K10_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.1278,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.832,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "SP1500_K10_struct",
+      "predicted": "dfl_wins",
+      "alignment": 0.1278,
+      "model_dim": 12,
+      "dfl_gain_pct": 1.733,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "SP1500_K20_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.1808,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.307,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "SP1500_K20_struct",
+      "predicted": "dfl_wins",
+      "alignment": 0.1808,
+      "model_dim": 12,
+      "dfl_gain_pct": 1.928,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "SP1500_K50_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.2858,
+      "model_dim": 1,
+      "dfl_gain_pct": -0.137,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "SP1500_K50_struct",
+      "predicted": "dfl_wins",
+      "alignment": 0.2858,
+      "model_dim": 12,
+      "dfl_gain_pct": 0.407,
+      "correct": false,
+      "domain": "finance"
+    },
+    {
+      "id": "Nikkei225_K5_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.2236,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.305,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "Nikkei225_K10_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.3162,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.005,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "Nikkei225_K20_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.4472,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.019,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "EuroStoxx50_K5_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.4564,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.094,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "EuroStoxx50_K10_shrink",
+      "predicted": "mse_sufficient",
+      "alignment": 0.6455,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.303,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "EuroStoxx50_K20_shrink",
+      "predicted": "mse_sufficient",
+      "alignment": 0.9129,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.214,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "ASX200_K5_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.2357,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.573,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "ASX200_K10_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.3333,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.531,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "ASX200_K20_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.4714,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.074,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "HangSeng_K5_shrink",
+      "predicted": "equivalent",
+      "alignment": 0.4472,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.994,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "HangSeng_K10_shrink",
+      "predicted": "mse_sufficient",
+      "alignment": 0.6325,
+      "model_dim": 1,
+      "dfl_gain_pct": 1.12,
+      "correct": false,
+      "domain": "finance"
+    },
+    {
+      "id": "HangSeng_K20_shrink",
+      "predicted": "mse_sufficient",
+      "alignment": 0.8944,
+      "model_dim": 1,
+      "dfl_gain_pct": 0.202,
+      "correct": true,
+      "domain": "finance"
+    },
+    {
+      "id": "Weather_N100_K5",
+      "predicted": "dfl_wins",
+      "alignment": 0.3162,
+      "model_dim": 10,
+      "dfl_gain_pct": -0.293,
+      "correct": false,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N100_K10",
+      "predicted": "ambiguous",
+      "alignment": 0.4472,
+      "model_dim": 10,
+      "dfl_gain_pct": -1.552,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N100_K20",
+      "predicted": "ambiguous",
+      "alignment": 0.6325,
+      "model_dim": 10,
+      "dfl_gain_pct": -3.614,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N100_K50",
+      "predicted": "mse_sufficient",
+      "alignment": 1.0,
+      "model_dim": 10,
+      "dfl_gain_pct": -11.187,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N200_K5",
+      "predicted": "dfl_wins",
+      "alignment": 0.2236,
+      "model_dim": 10,
+      "dfl_gain_pct": 0.036,
+      "correct": false,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N200_K10",
+      "predicted": "dfl_wins",
+      "alignment": 0.3162,
+      "model_dim": 10,
+      "dfl_gain_pct": 1.006,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N200_K20",
+      "predicted": "ambiguous",
+      "alignment": 0.4472,
+      "model_dim": 10,
+      "dfl_gain_pct": -1.813,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N200_K50",
+      "predicted": "mse_sufficient",
+      "alignment": 0.7071,
+      "model_dim": 10,
+      "dfl_gain_pct": -6.991,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N500_K5",
+      "predicted": "dfl_wins",
+      "alignment": 0.1414,
+      "model_dim": 10,
+      "dfl_gain_pct": -0.074,
+      "correct": false,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N500_K10",
+      "predicted": "dfl_wins",
+      "alignment": 0.2,
+      "model_dim": 10,
+      "dfl_gain_pct": 0.018,
+      "correct": false,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N500_K20",
+      "predicted": "dfl_wins",
+      "alignment": 0.2828,
+      "model_dim": 10,
+      "dfl_gain_pct": -2.482,
+      "correct": false,
+      "domain": "weather"
+    },
+    {
+      "id": "Weather_N500_K50",
+      "predicted": "ambiguous",
+      "alignment": 0.4472,
+      "model_dim": 10,
+      "dfl_gain_pct": -15.093,
+      "correct": true,
+      "domain": "weather"
+    },
+    {
+      "id": "EPA_N200_K10",
+      "predicted": "dfl_wins",
+      "alignment": 0.3162,
+      "model_dim": 10,
+      "dfl_gain_pct": 5.76,
+      "correct": true,
+      "domain": "air_quality"
+    },
+    {
+      "id": "EPA_N200_K20",
+      "predicted": "ambiguous",
+      "alignment": 0.4472,
+      "model_dim": 10,
+      "dfl_gain_pct": 2.239,
+      "correct": true,
+      "domain": "air_quality"
+    },
+    {
+      "id": "EPA_N200_K50",
+      "predicted": "mse_sufficient",
+      "alignment": 0.7071,
+      "model_dim": 10,
+      "dfl_gain_pct": 9.411,
+      "correct": false,
+      "domain": "air_quality"
+    }
+  ],
+  "v2_scored": [
+    {
+      "id": "SP1500_K10_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.832,
+      "v2_correct": true
+    },
+    {
+      "id": "SP1500_K10_struct",
+      "original": "dfl_wins",
+      "v2": "dfl_wins",
+      "changed": false,
+      "dfl_gain_pct": 1.733,
+      "v2_correct": true
+    },
+    {
+      "id": "SP1500_K20_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.307,
+      "v2_correct": true
+    },
+    {
+      "id": "SP1500_K20_struct",
+      "original": "dfl_wins",
+      "v2": "dfl_wins",
+      "changed": false,
+      "dfl_gain_pct": 1.928,
+      "v2_correct": true
+    },
+    {
+      "id": "SP1500_K50_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": -0.137,
+      "v2_correct": true
+    },
+    {
+      "id": "SP1500_K50_struct",
+      "original": "dfl_wins",
+      "v2": "dfl_wins",
+      "changed": false,
+      "dfl_gain_pct": 0.407,
+      "v2_correct": false
+    },
+    {
+      "id": "Nikkei225_K5_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.305,
+      "v2_correct": true
+    },
+    {
+      "id": "Nikkei225_K10_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.005,
+      "v2_correct": true
+    },
+    {
+      "id": "Nikkei225_K20_shrink",
+      "original": "equivalent",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": 0.019,
+      "v2_correct": true
+    },
+    {
+      "id": "EuroStoxx50_K5_shrink",
+      "original": "equivalent",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": 0.094,
+      "v2_correct": true
+    },
+    {
+      "id": "EuroStoxx50_K10_shrink",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": 0.303,
+      "v2_correct": true
+    },
+    {
+      "id": "EuroStoxx50_K20_shrink",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": 0.214,
+      "v2_correct": true
+    },
+    {
+      "id": "ASX200_K5_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.573,
+      "v2_correct": true
+    },
+    {
+      "id": "ASX200_K10_shrink",
+      "original": "equivalent",
+      "v2": "equivalent",
+      "changed": false,
+      "dfl_gain_pct": 0.531,
+      "v2_correct": true
+    },
+    {
+      "id": "ASX200_K20_shrink",
+      "original": "equivalent",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": 0.074,
+      "v2_correct": true
+    },
+    {
+      "id": "HangSeng_K5_shrink",
+      "original": "equivalent",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": 0.994,
+      "v2_correct": true
+    },
+    {
+      "id": "HangSeng_K10_shrink",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": 1.12,
+      "v2_correct": false
+    },
+    {
+      "id": "HangSeng_K20_shrink",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": 0.202,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N100_K5",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": -0.293,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N100_K10",
+      "original": "ambiguous",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": -1.552,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N100_K20",
+      "original": "ambiguous",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": -3.614,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N100_K50",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": -11.187,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N200_K5",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": 0.036,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N200_K10",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": 1.006,
+      "v2_correct": false
+    },
+    {
+      "id": "Weather_N200_K20",
+      "original": "ambiguous",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": -1.813,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N200_K50",
+      "original": "mse_sufficient",
+      "v2": "mse_sufficient",
+      "changed": false,
+      "dfl_gain_pct": -6.991,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N500_K5",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": -0.074,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N500_K10",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": 0.018,
+      "v2_correct": true
+    },
+    {
+      "id": "Weather_N500_K20",
+      "original": "dfl_wins",
+      "v2": "equivalent",
+      "changed": true,
+      "dfl_gain_pct": -2.482,
+      "v2_correct": false
+    },
+    {
+      "id": "Weather_N500_K50",
+      "original": "ambiguous",
+      "v2": "mse_sufficient",
+      "changed": true,
+      "dfl_gain_pct": -15.093,
+      "v2_correct": true
+    },
+    {
+      "id": "EPA_N200_K10",
+      "original": "dfl_wins",
+      "v2": "dfl_wins",
+      "changed": false,
+      "dfl_gain_pct": 5.76,
+      "v2_correct": true
+    },
+    {
+      "id": "EPA_N200_K20",
+      "original": "ambiguous",
+      "v2": "ambiguous",
+      "changed": false,
+      "dfl_gain_pct": 2.239,
+      "v2_correct": true
+    },
+    {
+      "id": "EPA_N200_K50",
+      "original": "mse_sufficient",
+      "v2": "ambiguous",
+      "changed": true,
+      "dfl_gain_pct": 9.411,
+      "v2_correct": true
+    }
+  ],
+  "unmatched": [
+    "Weather_N200_K100",
+    "Weather_N500_K250"
+  ],
+  "per_category": {
+    "equivalent": {
+      "accuracy": 1.0,
+      "n": 11
+    },
+    "dfl_wins": {
+      "accuracy": 0.4,
+      "n": 10
+    },
+    "mse_sufficient": {
+      "accuracy": 0.7142857142857143,
+      "n": 7
+    },
+    "ambiguous": {
+      "accuracy": 1.0,
+      "n": 5
+    }
+  }
+}

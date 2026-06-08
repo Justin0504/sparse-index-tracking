@@ -1,0 +1,151 @@
+{
+  "results": [
+    {
+      "N": 100,
+      "K": 5,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 38.0837
+    },
+    {
+      "N": 100,
+      "K": 5,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 37.4579
+    },
+    {
+      "N": 100,
+      "K": 5,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 37.5677
+    },
+    {
+      "N": 100,
+      "K": 10,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 26.9209
+    },
+    {
+      "N": 100,
+      "K": 10,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 25.3388
+    },
+    {
+      "N": 100,
+      "K": 10,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 25.732
+    },
+    {
+      "N": 100,
+      "K": 20,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 21.2838
+    },
+    {
+      "N": 100,
+      "K": 20,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 20.0325
+    },
+    {
+      "N": 100,
+      "K": 20,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 20.7564
+    },
+    {
+      "N": 100,
+      "K": 50,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 7.0776
+    },
+    {
+      "N": 100,
+      "K": 50,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 5.589
+    },
+    {
+      "N": 100,
+      "K": 50,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 6.2142
+    },
+    {
+      "N": 189,
+      "K": 5,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 42.2987
+    },
+    {
+      "N": 189,
+      "K": 5,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 40.6299
+    },
+    {
+      "N": 189,
+      "K": 5,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 40.6152
+    },
+    {
+      "N": 189,
+      "K": 10,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 27.4077
+    },
+    {
+      "N": 189,
+      "K": 10,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 24.7631
+    },
+    {
+      "N": 189,
+      "K": 10,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 24.5141
+    },
+    {
+      "N": 189,
+      "K": 20,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 16.3639
+    },
+    {
+      "N": 189,
+      "K": 20,
+      "model": "spatial_structured",
+      "loss": "mse",
+      "tracking_error": 14.8742
+    },
+    {
+      "N": 189,
+      "K": 20,
+      "model": "spatial_structured",
+      "loss": "task",
+      "tracking_error": 15.1439
+    }
+  ]
+}

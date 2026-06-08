@@ -60,7 +60,15 @@ def compute_dfl_gain(results: dict, case: dict) -> float | None:
 
     Returns (MSE_TE - DFL_TE) / MSE_TE * 100, positive = DFL better.
     """
-    market = case["market"]
+    market_aliases = {
+        "EPA_AQS": "EPA",
+        "NOAA_ASOS": "Weather",
+        "nikkei225": "Nikkei225",
+        "eurostoxx50": "EuroStoxx50",
+        "asx200": "ASX200",
+        "hangseng": "HangSeng",
+    }
+    market = market_aliases.get(case["market"], case["market"])
     K = case["K"]
     model_name = case.get("model", "shrinkage")
     N = case.get("N")
@@ -79,23 +87,57 @@ def compute_dfl_gain(results: dict, case: dict) -> float | None:
     dfl_results = results.get(dfl_key, [])
 
     if not mse_results or not dfl_results:
+        mse_candidates = []
+        dfl_candidates = []
         for key, vals in results.items():
             mk, kk, mdl, loss, nn = key
             if mk == market and kk == K and model_key in mdl.lower():
+                if N and nn and max(N, nn) / max(min(N, nn), 1) > 2.5:
+                    continue
                 if loss == "mse":
-                    mse_results = vals
+                    mse_candidates.append((nn, vals))
                 elif loss == "task":
-                    dfl_results = vals
+                    dfl_candidates.append((nn, vals))
+        if mse_candidates:
+            mse_candidates.sort(key=lambda x: abs((x[0] or 0) - (N or 0)))
+            mse_results = mse_candidates[0][1]
+        if dfl_candidates:
+            dfl_candidates.sort(key=lambda x: abs((x[0] or 0) - (N or 0)))
+            dfl_results = dfl_candidates[0][1]
 
     if not mse_results or not dfl_results:
         return None
 
-    mse_te = np.mean([r["tracking_error"] for r in mse_results])
-    dfl_te = np.mean([r["tracking_error"] for r in dfl_results])
+    mse_by_fold = {r.get("fold", i): r["tracking_error"] for i, r in enumerate(mse_results)}
+    dfl_by_fold = {r.get("fold", i): r["tracking_error"] for i, r in enumerate(dfl_results)}
+    common_folds = sorted(set(mse_by_fold) & set(dfl_by_fold))
+    if not common_folds:
+        return None
+
+    mse_te = np.mean([mse_by_fold[f] for f in common_folds])
+    dfl_te = np.mean([dfl_by_fold[f] for f in common_folds])
 
     if mse_te == 0:
         return 0.0
     return (mse_te - dfl_te) / mse_te * 100
+
+
+DOMAIN_HET = {"finance": 1.0, "weather": 0.144, "air_quality": 0.606}
+
+
+def refined_v2_prediction(case: dict) -> str:
+    """Apply refined v2 diagnostic using effective_dim = model_dim × het_factor."""
+    het = DOMAIN_HET.get(case["domain"], 1.0)
+    eff_dim = case["model_dim"] * het
+    alignment = case["alignment"]
+
+    if eff_dim <= 1.5 and alignment > 0.4:
+        return "mse_sufficient"
+    if eff_dim <= 1.5 and alignment <= 0.4:
+        return "equivalent"
+    if eff_dim >= 4 and alignment < 0.40:
+        return "dfl_wins"
+    return "ambiguous"
 
 
 def score_prediction(predicted: str, dfl_gain_pct: float, threshold: float = 1.0) -> bool:
@@ -209,13 +251,44 @@ def main():
             print(f" {count:>12d}", end="")
         print()
 
+    # Refined v2 scoring (effective_dim = model_dim × het_factor)
+    print(f"\n{'='*60}")
+    print("REFINED V2 DIAGNOSTIC (effective_dim = dim × het):")
+    v2_scored = []
+    for case in preds["cases"]:
+        gain = compute_dfl_gain(results, case)
+        if gain is None:
+            continue
+        v2_pred = refined_v2_prediction(case)
+        v2_correct = score_prediction(v2_pred, gain, threshold)
+        v2_scored.append({
+            "id": case["id"],
+            "original": case["predict"],
+            "v2": v2_pred,
+            "changed": case["predict"] != v2_pred,
+            "dfl_gain_pct": round(gain, 3),
+            "v2_correct": v2_correct,
+        })
+
+    v2_correct_count = sum(s["v2_correct"] for s in v2_scored)
+    print(f"  V2 accuracy: {v2_correct_count}/{len(v2_scored)} = {v2_correct_count/len(v2_scored):.1%}")
+    print(f"  Original:    {n_correct}/{n_total} = {n_correct/n_total:.1%}")
+    changed = [s for s in v2_scored if s["changed"]]
+    if changed:
+        print(f"\n  Predictions changed by v2 ({len(changed)}):")
+        for s in changed:
+            mark = "✓" if s["v2_correct"] else "✗"
+            print(f"    {mark} {s['id']}: {s['original']} → {s['v2']}, gain={s['dfl_gain_pct']:+.2f}%")
+
     # Save scoring results
     output = {
         "overall_accuracy": n_correct / n_total,
+        "v2_accuracy": v2_correct_count / len(v2_scored),
         "n_scored": n_total,
         "n_unmatched": len(unmatched),
         "threshold_pct": threshold,
         "scored": scored,
+        "v2_scored": v2_scored,
         "unmatched": unmatched,
         "per_category": {
             cat: {
@@ -227,7 +300,7 @@ def main():
     }
     out_path = Path("results/diagnostic/scoring.json")
     with open(out_path, "w") as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, default=lambda x: bool(x) if isinstance(x, np.bool_) else float(x))
     print(f"\nSaved scoring to {out_path}")
 
 

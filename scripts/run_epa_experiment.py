@@ -225,7 +225,7 @@ def main():
 
     for N in [200, 500, 800]:
         log.info(f"\n{'='*60}\nLoading N={N} EPA PM2.5 stations...")
-        loader = EPAAirQualityLoader(n_stations=N)
+        loader = EPAAirQualityLoader(n_stations=N, min_coverage=0.50)
         anomalies, field_avg, station_ids, metadata = loader.load()
         log.info(f"  {len(station_ids)} stations, {len(anomalies)} days")
 
@@ -277,7 +277,7 @@ def main():
                 res = evaluate_model(model, data_test, N_actual, K)
                 if res:
                     result = {
-                        "N": N, "K": K, "model": "spatial_structured", "loss": loss_type,
+                        "N": N_actual, "K": K, "model": "spatial_structured", "loss": loss_type,
                         "alignment": round(alignment, 4),
                         **res,
                     }

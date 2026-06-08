@@ -68,6 +68,7 @@ training:
   turnover_penalty: 0.0         # λ for turnover regularization in task loss
   lookahead_steps: 1            # multi-step lookahead (1 = single-step, 2-3 for trajectory)
   curriculum_epochs: 0          # epochs of pure MSE before transitioning to task loss (0 = disabled)
+  bd_dfl_beta: 0.0              # BD-DFL: MSE regularization weight (0 = pure DFL, >0 = blended)
   seed: 42
   device: "mps"                 # cpu | cuda | mps
 

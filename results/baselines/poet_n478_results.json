@@ -1,0 +1,154 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "K": 10,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.06294074816449283,
+      "avg_turnover": 0.1461072575891245,
+      "test_start": "2020-07-06",
+      "test_end": "2021-07-02"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.055250504604203034,
+      "avg_turnover": 0.17141778641569833,
+      "test_start": "2020-07-06",
+      "test_end": "2021-07-02"
+    },
+    {
+      "fold": 0,
+      "K": 50,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.03202982152947209,
+      "avg_turnover": 0.169470444490004,
+      "test_start": "2020-07-06",
+      "test_end": "2021-07-02"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.06931791889664388,
+      "avg_turnover": 0.1104259262377144,
+      "test_start": "2021-07-06",
+      "test_end": "2022-07-01"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.04831808805147667,
+      "avg_turnover": 0.16655667754259676,
+      "test_start": "2021-07-06",
+      "test_end": "2022-07-01"
+    },
+    {
+      "fold": 1,
+      "K": 50,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.032327878548685435,
+      "avg_turnover": 0.162501208383594,
+      "test_start": "2021-07-06",
+      "test_end": "2022-07-01"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.0666033083646353,
+      "avg_turnover": 0.12062096523110731,
+      "test_start": "2022-07-05",
+      "test_end": "2023-07-03"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.046101423921224856,
+      "avg_turnover": 0.14201398647764776,
+      "test_start": "2022-07-05",
+      "test_end": "2023-07-03"
+    },
+    {
+      "fold": 2,
+      "K": 50,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.032403494806080936,
+      "avg_turnover": 0.15004747980553845,
+      "test_start": "2022-07-05",
+      "test_end": "2023-07-03"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.06368379173640734,
+      "avg_turnover": 0.15472407836291968,
+      "test_start": "2023-07-03",
+      "test_end": "2024-07-03"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.056325945562073314,
+      "avg_turnover": 0.19125905190776338,
+      "test_start": "2023-07-03",
+      "test_end": "2024-07-03"
+    },
+    {
+      "fold": 3,
+      "K": 50,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.03303309235807107,
+      "avg_turnover": 0.0867099490409948,
+      "test_start": "2023-07-03",
+      "test_end": "2024-07-03"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.0598745135907965,
+      "avg_turnover": 0.14637140282936884,
+      "test_start": "2024-07-03",
+      "test_end": "2025-07-03"
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.04442080120594897,
+      "avg_turnover": 0.15093195165025522,
+      "test_start": "2024-07-03",
+      "test_end": "2025-07-03"
+    },
+    {
+      "fold": 4,
+      "K": 50,
+      "model": "poet",
+      "loss": "none",
+      "tracking_error": 0.026793621366481744,
+      "avg_turnover": 0.17151563499839262,
+      "test_start": "2024-07-03",
+      "test_end": "2025-07-03"
+    }
+  ]
+}

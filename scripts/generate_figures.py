@@ -12,7 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import ttest_rel
+from scipy.stats import ttest_rel, wilcoxon, permutation_test
 
 # ── Style ──
 plt.rcParams.update({
@@ -223,7 +223,11 @@ def fig_cumulative_tracking(df: pd.DataFrame, K: int = 20) -> None:
 
 # ── Statistical Significance ──
 def statistical_tests(df: pd.DataFrame) -> pd.DataFrame:
-    """Paired t-test: DFL vs MSE for each model × K."""
+    """Statistical tests: DFL vs MSE for each model × K.
+
+    Reports: paired t-test, Wilcoxon signed-rank, permutation test,
+    Cohen's d effect size.
+    """
     rows = []
     models = df["model"].unique()
     K_vals = sorted(df["K"].unique())
@@ -240,10 +244,35 @@ def statistical_tests(df: pd.DataFrame) -> pd.DataFrame:
             if len(dfl_te) < 3 or len(mse_te) < 3 or len(dfl_te) != len(mse_te):
                 continue
 
-            t_stat, p_val = ttest_rel(dfl_te, mse_te)
-            mean_diff = dfl_te.mean() - mse_te.mean()
+            diff = dfl_te - mse_te
+            mean_diff = diff.mean()
             pct_diff = mean_diff / mse_te.mean() * 100
             dfl_wins = sum(d < m for d, m in zip(dfl_te, mse_te))
+
+            # Paired t-test
+            t_stat, p_ttest = ttest_rel(dfl_te, mse_te)
+
+            # Wilcoxon signed-rank test (one-sided: DFL < MSE)
+            try:
+                _, p_wilcoxon = wilcoxon(dfl_te, mse_te, alternative="less")
+            except ValueError:
+                p_wilcoxon = float("nan")
+
+            # Permutation test
+            def stat_func(x, y, axis):
+                return np.mean(x - y, axis=axis)
+
+            try:
+                perm_result = permutation_test(
+                    (dfl_te, mse_te), stat_func,
+                    n_resamples=9999, alternative="less",
+                )
+                p_perm = perm_result.pvalue
+            except Exception:
+                p_perm = float("nan")
+
+            # Cohen's d (paired): mean(diff) / std(diff)
+            cohens_d = mean_diff / (diff.std(ddof=1) + 1e-12)
 
             rows.append({
                 "model": model,
@@ -253,8 +282,11 @@ def statistical_tests(df: pd.DataFrame) -> pd.DataFrame:
                 "diff": f"{mean_diff:+.4f}",
                 "pct": f"{pct_diff:+.1f}%",
                 "t_stat": f"{t_stat:.2f}",
-                "p_value": f"{p_val:.4f}",
-                "sig": "***" if p_val < 0.01 else "**" if p_val < 0.05 else "*" if p_val < 0.1 else "ns",
+                "p_ttest": f"{p_ttest:.4f}",
+                "p_wilcoxon": f"{p_wilcoxon:.4f}",
+                "p_permutation": f"{p_perm:.4f}",
+                "cohens_d": f"{cohens_d:.2f}",
+                "sig": "***" if p_wilcoxon < 0.01 else "**" if p_wilcoxon < 0.05 else "*" if p_wilcoxon < 0.1 else "ns",
                 "DFL_wins": f"{dfl_wins}/{len(dfl_te)}",
             })
 

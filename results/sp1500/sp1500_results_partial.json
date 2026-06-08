@@ -1,0 +1,545 @@
+{
+  "results": [
+    {
+      "fold": 0,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.1027,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.1103,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0984,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0854,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0973,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0831,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0794,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0807,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.076,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0755,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0725,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0772,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0633,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0585,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0695,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "N": 1224,
+      "model": "POET",
+      "loss": "N/A",
+      "tracking_error": 0.0581,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.1046,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.1021,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0989,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0862,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0995,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0825,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0805,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0791,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.1041,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0981,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0989,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0862,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0994,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0826,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0804,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0776,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.104,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0981,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0984,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0835,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0987,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0809,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0803,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "mse",
+      "tracking_error": 0.0773,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.1022,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0946,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0947,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0835,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0976,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0818,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0794,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 10,
+      "N": 1224,
+      "model": "structured",
+      "loss": "task",
+      "tracking_error": 0.0749,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0784,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0747,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0703,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0722,
+      "market": "SP1500"
+    },
+    {
+      "fold": 4,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.063,
+      "market": "SP1500"
+    },
+    {
+      "fold": 5,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0618,
+      "market": "SP1500"
+    },
+    {
+      "fold": 6,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0727,
+      "market": "SP1500"
+    },
+    {
+      "fold": 7,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "mse",
+      "tracking_error": 0.0591,
+      "market": "SP1500"
+    },
+    {
+      "fold": 0,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0776,
+      "market": "SP1500"
+    },
+    {
+      "fold": 1,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0747,
+      "market": "SP1500"
+    },
+    {
+      "fold": 2,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0703,
+      "market": "SP1500"
+    },
+    {
+      "fold": 3,
+      "K": 20,
+      "N": 1224,
+      "model": "shrinkage",
+      "loss": "task",
+      "tracking_error": 0.0722,
+      "market": "SP1500"
+    }
+  ],
+  "note": "Partial: K=10 complete, K=20 shrinkage DFL 4/8"
+}

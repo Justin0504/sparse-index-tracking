@@ -658,6 +658,265 @@ def run_spo_plus_baseline(prices, returns, folds, fb):
 
 # ═══════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════
+# Baseline 6: POET (Fan, Liao & Mincheva, 2013)
+# ═══════════════════════════════════════════════════════
+
+def run_poet_baseline(prices, returns, folds, fb):
+    """POET covariance estimator -> QP. Sweep n_factors and threshold_constant on val TE."""
+    log.info("\n" + "=" * 60)
+    log.info("BASELINE: POET Covariance + QP")
+    log.info("=" * 60)
+
+    all_results = []
+    min_offset = max(21, 63) + 1
+    N_FACTORS_GRID = [3, 5, 10]
+    THRESHOLD_GRID = [0.5, 1.0, 2.0]
+
+    for fold_info in folds:
+        ret_train = returns.loc[
+            (returns.index >= fold_info.train_start) & (returns.index <= fold_info.train_end)
+        ]
+        ret_val = returns.loc[
+            (returns.index >= fold_info.val_start) & (returns.index <= fold_info.val_end)
+        ]
+        ret_test = returns.loc[
+            (returns.index >= fold_info.test_start) & (returns.index <= fold_info.test_end)
+        ]
+
+        train_prices = prices.loc[prices.index.isin(ret_train.index)]
+        w_index = _compute_index_weights(train_prices)
+
+        rebal_val = [d for d in _get_monthly_rebal(ret_val.index)
+                     if d in returns.index and returns.index.get_loc(d) >= min_offset]
+        rebal_test = [d for d in _get_monthly_rebal(ret_test.index)
+                      if d in returns.index and returns.index.get_loc(d) >= min_offset]
+
+        if not rebal_val or not rebal_test:
+            continue
+
+        for K in SPARSITY_LEVELS:
+            # Tune n_factors and threshold on validation TE
+            best_val_te = float("inf")
+            best_nf, best_tc = 5, 1.0
+
+            for nf in N_FACTORS_GRID:
+                for tc in THRESHOLD_GRID:
+                    val_weights = []
+                    for date in rebal_val:
+                        try:
+                            cov = fb.compute_poet_covariance(
+                                returns, date, lookback=LOOKBACK,
+                                n_factors=nf, threshold_constant=tc,
+                            )
+                            w_opt = solve_tracking_qp(cov, w_index, K=K, selection="market_cap")
+                        except Exception:
+                            w_opt = naive_index_weights(w_index, K)
+                        val_weights.append(w_opt)
+
+                    val_metrics = evaluate_portfolio(val_weights, rebal_val, returns, w_index)
+                    if val_metrics and val_metrics["tracking_error"] < best_val_te:
+                        best_val_te = val_metrics["tracking_error"]
+                        best_nf, best_tc = nf, tc
+
+            # Evaluate on test with best hyperparameters
+            weights_history = []
+            for date in rebal_test:
+                try:
+                    cov = fb.compute_poet_covariance(
+                        returns, date, lookback=LOOKBACK,
+                        n_factors=best_nf, threshold_constant=best_tc,
+                    )
+                    w_opt = solve_tracking_qp(cov, w_index, K=K, selection="market_cap")
+                except Exception as e:
+                    log.warning(f"POET QP failed at {date}: {e}")
+                    w_opt = naive_index_weights(w_index, K)
+                weights_history.append(w_opt)
+
+            metrics = evaluate_portfolio(weights_history, rebal_test, returns, w_index)
+            if metrics is None:
+                continue
+
+            result = {
+                "fold": fold_info.fold,
+                "K": K,
+                "model": "poet",
+                "loss": "none",
+                "best_n_factors": best_nf,
+                "best_threshold_constant": best_tc,
+                "test_start": str(fold_info.test_start.date()),
+                "test_end": str(fold_info.test_end.date()),
+                **metrics,
+            }
+            all_results.append(result)
+            log.info(
+                f"Fold {fold_info.fold} K={K} | TE={metrics['tracking_error']:.4f} | "
+                f"nf={best_nf} tc={best_tc:.1f}"
+            )
+
+    return all_results
+
+
+# ═══════════════════════════════════════════════════════
+# Baseline 7: Graphical Lasso
+# ═══════════════════════════════════════════════════════
+
+def run_glasso_baseline(prices, returns, folds, fb):
+    """Graphical Lasso covariance -> QP. Uses cross-validation for alpha."""
+    log.info("\n" + "=" * 60)
+    log.info("BASELINE: Graphical Lasso + QP")
+    log.info("=" * 60)
+
+    all_results = []
+    min_offset = max(21, 63) + 1
+
+    for fold_info in folds:
+        ret_train = returns.loc[
+            (returns.index >= fold_info.train_start) & (returns.index <= fold_info.train_end)
+        ]
+        ret_test = returns.loc[
+            (returns.index >= fold_info.test_start) & (returns.index <= fold_info.test_end)
+        ]
+
+        train_prices = prices.loc[prices.index.isin(ret_train.index)]
+        w_index = _compute_index_weights(train_prices)
+
+        rebal_test = [d for d in _get_monthly_rebal(ret_test.index)
+                      if d in returns.index and returns.index.get_loc(d) >= min_offset]
+
+        if not rebal_test:
+            continue
+
+        for K in SPARSITY_LEVELS:
+            weights_history = []
+
+            for date in rebal_test:
+                try:
+                    cov = fb.compute_glasso_covariance(returns, date, lookback=LOOKBACK)
+                    w_opt = solve_tracking_qp(cov, w_index, K=K, selection="market_cap")
+                except Exception as e:
+                    log.warning(f"GLasso QP failed at {date}: {e}")
+                    w_opt = naive_index_weights(w_index, K)
+                weights_history.append(w_opt)
+
+            metrics = evaluate_portfolio(weights_history, rebal_test, returns, w_index)
+            if metrics is None:
+                continue
+
+            result = {
+                "fold": fold_info.fold,
+                "K": K,
+                "model": "glasso",
+                "loss": "none",
+                "test_start": str(fold_info.test_start.date()),
+                "test_end": str(fold_info.test_end.date()),
+                **metrics,
+            }
+            all_results.append(result)
+            log.info(f"Fold {fold_info.fold} K={K} | TE={metrics['tracking_error']:.4f}")
+
+    return all_results
+
+
+# ═══════════════════════════════════════════════════════
+# Baseline 8: K-only estimation (decision-blind on subset)
+# ═══════════════════════════════════════════════════════
+
+def run_konly_baseline(prices, returns, folds, fb):
+    """Pick top-K by market cap, estimate covariance ONLY among those K stocks,
+    then solve QP. No full-N covariance estimation.
+
+    This is the natural 'decision-blind subset' baseline suggested as a
+    comparison: if you know which K stocks you want, do you even need to
+    estimate the full N×N matrix?
+    """
+    from sklearn.covariance import LedoitWolf
+
+    log.info("\n" + "=" * 60)
+    log.info("BASELINE: K-only Estimation (LW on K stocks)")
+    log.info("=" * 60)
+
+    all_results = []
+    min_offset = max(21, 63) + 1
+
+    for fold_info in folds:
+        ret_test = returns.loc[
+            (returns.index >= fold_info.test_start) & (returns.index <= fold_info.test_end)
+        ]
+        train_prices = prices.loc[
+            (prices.index >= fold_info.train_start) & (prices.index <= fold_info.train_end)
+        ]
+        w_index = _compute_index_weights(train_prices)
+
+        rebal_test = [d for d in _get_monthly_rebal(ret_test.index)
+                      if d in returns.index and returns.index.get_loc(d) >= min_offset]
+        if not rebal_test:
+            continue
+
+        for K in SPARSITY_LEVELS:
+            # Select top-K by market cap (same selection as other baselines)
+            selected = np.argsort(w_index)[-K:]
+            w_idx_K = w_index[selected]
+            w_idx_K = w_idx_K / (w_idx_K.sum() + 1e-10)
+
+            weights_history = []
+            for date in rebal_test:
+                loc = returns.index.get_loc(date)
+                start = max(0, loc - LOOKBACK)
+                # Extract returns ONLY for the K selected stocks
+                ret_window = returns.iloc[start:loc, selected].values
+
+                # Estimate K×K covariance via Ledoit-Wolf
+                if ret_window.shape[0] > 2:
+                    lw = LedoitWolf().fit(ret_window)
+                    cov_K = lw.covariance_.astype(np.float64)
+                else:
+                    cov_K = np.eye(K, dtype=np.float64)
+
+                # Solve QP directly on K stocks (no selection step needed)
+                cov_K = 0.5 * (cov_K + cov_K.T)
+                cov_K += 1e-6 * np.eye(K)
+                b_K = cov_K @ w_idx_K
+
+                try:
+                    import cvxpy as cp
+                    w_var = cp.Variable(K)
+                    objective = cp.Minimize(cp.quad_form(w_var, cp.psd_wrap(cov_K)) - 2 * b_K @ w_var)
+                    constraints = [cp.sum(w_var) == 1, w_var >= 0]
+                    prob = cp.Problem(objective, constraints)
+                    prob.solve(solver=cp.SCS, verbose=False)
+                    if w_var.value is not None:
+                        w_K = np.maximum(w_var.value, 0)
+                        w_K = w_K / (w_K.sum() + 1e-10)
+                    else:
+                        w_K = w_idx_K.copy()
+                except Exception:
+                    w_K = w_idx_K.copy()
+
+                # Embed back into N-dimensional weight vector
+                w_full = np.zeros(len(w_index), dtype=np.float64)
+                w_full[selected] = w_K
+                weights_history.append(w_full)
+
+            metrics = evaluate_portfolio(weights_history, rebal_test, returns, w_index)
+            if metrics is None:
+                continue
+
+            result = {
+                "fold": fold_info.fold,
+                "K": K,
+                "model": "konly_lw",
+                "loss": "none",
+                "test_start": str(fold_info.test_start.date()),
+                "test_end": str(fold_info.test_end.date()),
+                **metrics,
+            }
+            all_results.append(result)
+            log.info(f"Fold {fold_info.fold} K={K} | TE={metrics['tracking_error']:.4f}")
+
+    return all_results
+
+
 def main():
     prices, returns, tickers, folds, fb = load_data()
     log.info(f"Loaded {len(tickers)} stocks, {len(folds)} folds")
@@ -695,6 +954,24 @@ def main():
         json.dump({"results": spo_results}, f, indent=2)
     log.info(f"SPO+ results saved ({len(spo_results)} entries)")
 
+    # 6. POET baseline
+    poet_results = run_poet_baseline(prices, returns, folds, fb)
+    with open(out_dir / "poet_results.json", "w") as f:
+        json.dump({"results": poet_results}, f, indent=2)
+    log.info(f"POET results saved ({len(poet_results)} entries)")
+
+    # 7. Graphical Lasso baseline
+    glasso_results = run_glasso_baseline(prices, returns, folds, fb)
+    with open(out_dir / "glasso_results.json", "w") as f:
+        json.dump({"results": glasso_results}, f, indent=2)
+    log.info(f"Graphical Lasso results saved ({len(glasso_results)} entries)")
+
+    # 8. K-only estimation baseline
+    konly_results = run_konly_baseline(prices, returns, folds, fb)
+    with open(out_dir / "konly_results.json", "w") as f:
+        json.dump({"results": konly_results}, f, indent=2)
+    log.info(f"K-only results saved ({len(konly_results)} entries)")
+
     # ── Summary ──
     log.info("\n" + "=" * 60)
     log.info("SUMMARY: Mean Tracking Error by K")
@@ -706,6 +983,9 @@ def main():
         ("Shrinkage-DFL", shrinkage_results),
         ("Val-Tuned", val_tuned_results),
         ("SPO+", spo_results),
+        ("POET", poet_results),
+        ("GraphicalLasso", glasso_results),
+        ("K-only LW", konly_results),
     ]
     for name, results in all_baselines:
         log.info(f"\n{name}:")
