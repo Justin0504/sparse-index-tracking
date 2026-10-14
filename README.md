@@ -165,3 +165,12 @@ results/                     # JSON result files (per fold, per model)
 figures/                     # Generated publication figures
 report/                      # LaTeX report and presentation materials
 ```
+
+<!-- aojieyuan-paper-section -->
+## Related paper
+
+This project is related to **[Jacobian Rank Collapse in Decision-Focused Learning](https://arxiv.org/abs/2609.39261)** by [Aojie (Justin) Yuan](https://aojieyuan.com), Haiyue Zhang, Zijian Su.
+
+- Paper page (PDF, abstract, BibTeX): https://aojieyuan.com/papers/jacobian-rank-collapse
+- arXiv: https://arxiv.org/abs/2609.39261
+- Plain-language explainer: https://aojieyuan.com/blog/why-decision-focused-learning-often-matches-mse · [中文解读](https://aojieyuan.com/zh/blog/why-decision-focused-learning-often-matches-mse)
